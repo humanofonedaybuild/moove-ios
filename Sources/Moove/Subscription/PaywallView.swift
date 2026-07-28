@@ -28,6 +28,9 @@ struct PaywallView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .mooveScreenBackground()
+        .task {
+            await subscriptionManager.refreshSubscriptionState()
+        }
     }
 
     private var headerSection: some View {
@@ -57,6 +60,18 @@ struct PaywallView: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, MooveSpacing.md)
         }
+        .background(softHeroGradient, alignment: .center)
+    }
+
+    private var softHeroGradient: some View {
+        RadialGradient(
+            colors: [Color.terracotta.opacity(0.18), Color.cream.opacity(0)],
+            center: .center,
+            startRadius: 8,
+            endRadius: 160
+        )
+        .frame(width: 320, height: 320)
+        .allowsHitTesting(false)
     }
 
     private var pricingSection: some View {

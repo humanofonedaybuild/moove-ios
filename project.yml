@@ -44,6 +44,7 @@ targets:
         type: folder
       - path: Resources/Fonts
         buildPhase: resources
+      - path: Resources/Moove.storekit
     dependencies:
       - target: MooveKit
     settings:
@@ -156,6 +157,8 @@ schemes:
       config: Debug
       storeKitConfiguration: Resources/Moove.storekit
       gatherCoverage: false
+      commandLineArguments:
+        "-DisableStoreKitInit": true
       targets:
         - MooveTests
         - MooveUITests

@@ -6,6 +6,7 @@ cd "$MOOVE_DIR"
 
 echo "=== Generating Xcode project ==="
 xcodegen generate
+python3 scripts/patch-scheme-storekit.py
 
 echo "=== Building Moove for simulator ==="
 xcodebuild -project Moove.xcodeproj -scheme Moove -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -configuration Debug build 2>&1

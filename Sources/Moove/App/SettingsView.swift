@@ -49,7 +49,7 @@ struct SettingsView: View {
                 Label("Status", systemImage: "crown.fill")
                     .foregroundStyle(subscriptionManager.isPremium ? Color.terracotta : Color.taupe)
                 Spacer()
-                Text(subscriptionManager.isPremium ? "Premium" : "Free")
+                Text(subscriptionStatusLabel)
                     .foregroundStyle(subscriptionManager.isPremium ? Color.terracotta : Color.taupe)
                     .fontWeight(.medium)
             }
@@ -234,6 +234,15 @@ PermissionRow(
 
     private var stepRange: ClosedRange<Int> {
         AlarmConfig.defaultStepRange
+    }
+
+    private var subscriptionStatusLabel: String {
+        guard subscriptionManager.isPremium else { return "Free" }
+        switch subscriptionManager.subscriptionState {
+        case .trial: return "Trial"
+        case .active: return "Premium"
+        case .inactive: return "Free"
+        }
     }
 
     private var motionAuthorizationStatus: String {

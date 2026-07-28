@@ -32,6 +32,11 @@ public enum Constants {
     public static let subscriptionProductIDs: [String] = [monthlyProductID, yearlyProductID]
     public static let subscriptionTrialDuration: TimeInterval = 7 * 24 * 3600
 
+    public enum Links {
+        public static let termsOfService = URL(string: "https://moovealarm.com/terms")!
+        public static let privacyPolicy = URL(string: "https://moovealarm.com/privacy")!
+    }
+
     public static let liveActivityPushInterval: TimeInterval = 2.0
 
     /// Duration of the "Gradual Volume" fade-in for alarm playback.

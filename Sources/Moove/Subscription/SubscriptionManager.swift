@@ -153,7 +153,7 @@ final class SubscriptionManager: NSObject {
     /// StoreKit 2 verifies transaction JWT signatures on-device. This helper
     /// unwraps a `VerificationResult`, throwing `.unverified` for any payload
     /// that fails Apple's signature check so callers cannot act on forged data.
-    static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+    nonisolated static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
         switch result {
         case .verified(let safe):
             return safe
