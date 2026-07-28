@@ -1,0 +1,90 @@
+{
+  "identifier" : "11111111-2222-3333-4444-555555555555",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "com.moove.alarmclock.debugconsumable",
+      "localizations" : [
+        {
+          "description" : "Debug consumable",
+          "displayName" : "Debug Consumable",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.moove.alarmclock.debugconsumable",
+      "referenceName" : "Debug Consumable",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "com.moove.alarmclock.subscriptions",
+      "localizations" : [],
+      "name" : "Moove Premium",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "code" : "",
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupID" : "com.moove.alarmclock.subscriptions",
+          "internalID" : "moove.monthly",
+          "introductoryOffer" : {
+            "internalID" : "moove.monthly.trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlimited alarms, full sound library, and Apple Watch companion.",
+              "displayName" : "Moove Premium Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "moove.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Moove Premium Monthly",
+          "subscriptionGroupID" : "com.moove.alarmclock.subscriptions",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "code" : "",
+          "displayPrice" : "39.99",
+          "familyShareable" : false,
+          "groupID" : "com.moove.alarmclock.subscriptions",
+          "internalID" : "moove.yearly",
+          "introductoryOffer" : {
+            "internalID" : "moove.yearly.trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "Best value — unlimited alarms, full sound library, and Apple Watch companion. Save over 30% vs monthly.",
+              "displayName" : "Moove Premium Yearly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "moove.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Moove Premium Yearly",
+          "subscriptionGroupID" : "com.moove.alarmclock.subscriptions",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 2,
+    "minor" : 0
+  }
+}

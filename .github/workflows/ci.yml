@@ -1,0 +1,115 @@
+name: Moove CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  XCODE_VERSION: "16.0"
+
+jobs:
+  test-ios:
+    name: Test iOS
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${XCODE_VERSION}.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Run iOS tests
+        run: |
+          xcodebuild test \
+            -project Moove.xcodeproj \
+            -scheme Moove \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=26.0' \
+            -test-iterations 3 \
+            -retry-tests-on-failure \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty && exit ${PIPESTATUS[0]}
+
+      - name: Build iOS (release)
+        run: |
+          xcodebuild build \
+            -project Moove.xcodeproj \
+            -scheme Moove \
+            -sdk iphoneos \
+            -configuration Release \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty && exit ${PIPESTATUS[0]}
+
+  test-watch:
+    name: Test watchOS
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${XCODE_VERSION}.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build watchOS
+        run: |
+          xcodebuild build \
+            -project Moove.xcodeproj \
+            -scheme MooveWatch \
+            -sdk watchsimulator \
+            -destination 'platform=watchOS Simulator,name=Apple Watch Ultra 2,OS=11.0' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            | xcpretty && exit ${PIPESTATUS[0]}
+
+  lint:
+    name: SwiftLint
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${XCODE_VERSION}.app
+
+      - name: Run SwiftLint
+        run: |
+          brew install swiftlint
+          swiftlint --strict
+
+  spm-build:
+    name: SPM Build (MooveKit)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${XCODE_VERSION}.app
+
+      - name: SPM Build
+        run: swift build -Xswiftc -strict-concurrency=complete
+
+  spm-test:
+    name: SPM Test (MooveKit)
+    runs-on: macos-15
+    needs: spm-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${XCODE_VERSION}.app
+
+      - name: SPM Test
+        run: swift test -Xswiftc -strict-concurrency=complete

@@ -1,0 +1,183 @@
+name: Moove
+options:
+  bundleIdPrefix: com.moove
+  deploymentTarget:
+    iOS: "18.0"
+    watchOS: "11.0"
+  xcodeVersion: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  SWIFT_VERSION: "6.0"
+  SWIFT_STRICT_CONCURRENCY: complete
+  ENABLE_USER_SCRIPT_SANDBOXING: YES
+
+targets:
+  Moove:
+    type: application
+    platform: iOS
+    info:
+      path: Resources/Moove-Info.plist
+      properties:
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: ""
+        LSApplicationCategoryType: public.app-category.lifestyle
+        NSHealthShareUsageDescription: "Moove uses step count to track your wake-up mission."
+        NSMotionUsageDescription: "Moove uses motion data to detect steps and shakes during your alarm mission."
+        NSMicrophoneUsageDescription: "Moove uses the microphone to detect nearby audio events."
+        UIAppFonts:
+          - CormorantGaramond-Variable.ttf
+          - CormorantGaramond-Italic-Variable.ttf
+          - Manrope-Variable.ttf
+        UIBackgroundModes:
+          - audio
+          - processing
+          - fetch
+        AlarmKitAlarmConfiguration:
+          - NSExtension
+    sources:
+      - path: Sources/Moove
+      - path: Resources/Assets.xcassets
+        type: folder
+      - path: Resources/Sounds
+        type: folder
+      - path: Resources/Fonts
+        buildPhase: resources
+    dependencies:
+      - target: MooveKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.moove.alarmclock
+        INFOPLIST_OUTPUT_FORMAT: xml
+        COM_MOOVE_APP_GROUP: group.com.moove.alarmclock
+    entitlements:
+      path: Resources/Moove.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.moove.alarmclock
+        com.apple.developer.alarmkit:
+          - alarm-configuration
+
+  MooveWatch:
+    type: application
+    platform: watchOS
+    info:
+      path: Resources/MooveWatch-Info.plist
+      properties:
+        WKCompanionAppBundleIdentifier: com.moove.alarmclock
+        WKApplication: true
+        NSHealthShareUsageDescription: "Moove uses step count and workout data to track your wake-up mission."
+        NSHealthUpdateUsageDescription: "Moove records your wake-up walk as a workout so step tracking stays active during the alarm mission."
+        NSMotionUsageDescription: "Moove uses motion data to count your wake-up steps during the alarm mission."
+        WKBackgroundModes:
+          - workout-processing
+        UIAppFonts:
+          - CormorantGaramond-Variable.ttf
+          - CormorantGaramond-Italic-Variable.ttf
+          - Manrope-Variable.ttf
+    sources:
+      - path: Sources/MooveWatch
+      - path: Sources/MooveKit
+        excludes:
+          - "DesignSystem/**"
+      - path: Sources/Moove/DesignSystem
+        includes:
+          - "Font+Typography.swift"
+          - "Color+Tokens.swift"
+      - path: Resources/Assets.xcassets
+        type: folder
+      - path: Resources/Fonts
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.moove.alarmclock.watch
+    entitlements:
+      path: Resources/MooveWatch.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+
+  MooveKit:
+    type: framework
+    platform: iOS
+    sources:
+      - path: Sources/MooveKit
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.moove.alarmclock.kit
+        BUILD_LIBRARY_FOR_DISTRIBUTION: YES
+
+  MooveTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/MooveTests
+      - path: Resources/Moove.storekit
+        buildPhase: resources
+    dependencies:
+      - target: Moove
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+  MooveUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/MooveUITests
+    dependencies:
+      - target: Moove
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+  MooveWatchTests:
+    type: bundle.unit-test
+    platform: watchOS
+    sources:
+      - path: Tests/MooveWatchTests
+    dependencies:
+      - target: MooveWatch
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  Moove:
+    build:
+      targets:
+        Moove: all
+        MooveKit: all
+    run:
+      config: Debug
+      storeKitConfiguration: Resources/Moove.storekit
+    test:
+      config: Debug
+      storeKitConfiguration: Resources/Moove.storekit
+      gatherCoverage: false
+      targets:
+        - MooveTests
+        - MooveUITests
+    archive:
+      config: Release
+
+  MooveWatch:
+    build:
+      targets:
+        MooveWatch: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MooveWatchTests
+    archive:
+      config: Release
+
+  MooveKit:
+    build:
+      targets:
+        MooveKit: all
+
+

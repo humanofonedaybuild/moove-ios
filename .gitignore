@@ -1,0 +1,26 @@
+# Xcode
+*.xcworkspace
+*.xcuserdata
+*.xcodeproj/xcuserdata
+*.xcodeproj/project.xcworkspace
+Moove.xcodeproj/
+
+# SwiftPM
+.build/
+Package.resolved
+
+# Build
+DerivedData/
+.build/
+build/
+
+# OS
+.DS_Store
+*~
+
+# IDE
+.swiftpm/
+.swift-version
+
+# Generated
+project.yml.lock
