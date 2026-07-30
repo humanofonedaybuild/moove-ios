@@ -6,7 +6,7 @@ public enum Constants {
 
     public static let maximumSnoozeCount: Int = 1
 
-    /// Max snooze count options offered in Settings (0 = snooze disabled, up to 3).
+    /// Max snooze count options offered in Settings (0 = snooze disabled, up to a maximum of 3).
     public static let maxSnoozeOptions: [Int] = [0, 1, 2, 3]
 
     public struct SnoozeOption: Sendable, Equatable {
@@ -25,11 +25,7 @@ public enum Constants {
         SnoozeOption(label: "15 min", duration: 900),
     ]
 
-    /// Auto-renewable subscription product IDs (mirrored in App Store Connect
-    /// and `Resources/Moove.storekit` for local StoreKit Testing).
-    public static let monthlyProductID = "moove.monthly"
-    public static let yearlyProductID = "moove.yearly"
-    public static let subscriptionProductIDs: [String] = [monthlyProductID, yearlyProductID]
+    /// 7-day trial duration for subscriptions
     public static let subscriptionTrialDuration: TimeInterval = 7 * 24 * 3600
 
     public enum Links {

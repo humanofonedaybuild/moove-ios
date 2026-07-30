@@ -66,7 +66,7 @@ final class WatchModelTests: XCTestCase {
         XCTAssertEqual(Constants.StepTracking.minimumSteps, 10)
         XCTAssertEqual(Constants.StepTracking.maximumSteps, 100)
         XCTAssertEqual(Constants.StepTracking.stepInterval, 10)
-        XCTAssertEqual(Constants.subscriptionProductIDs, ["moove.monthly", "moove.yearly"])
+        XCTAssertEqual(RevenueCatConstants.subscriptionProductIDs, ["moove.monthly", "moove.yearly"])
         XCTAssertEqual(Constants.appGroupIdentifier, "group.com.moove.alarmclock")
     }
 

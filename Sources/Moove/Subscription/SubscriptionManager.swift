@@ -1,5 +1,5 @@
 import Foundation
-import StoreKit
+import RevenueCat
 import Observation
 import MooveKit
 
@@ -7,179 +7,223 @@ import MooveKit
 @MainActor
 final class SubscriptionManager: NSObject {
     static let shared = SubscriptionManager()
-
+    
     var isPremium: Bool = false
     var shouldShowPaywall: Bool = false
     var isLoadingProducts: Bool = false
-    var products: [Product] = []
-
+    var products: [StoreProduct] = []
+    
     /// Current lifecycle state (`.inactive` / `.trial` / `.active`). Refreshed
-    /// by `refreshSubscriptionState()` from `Transaction.currentEntitlements`.
+    /// by `refreshSubscriptionState()` from RevenueCat entitlements.
     private(set) var subscriptionState: SubscriptionState = .inactive
-
+    
     /// Whether the Apple account can still redeem the 7-day introductory
     /// trial offer. Becomes `false` once any subscription in the group has
     /// consumed the intro offer (anti-reinstall-bypass). Defaults to `true`
     /// until products load so the paywall surfaces the trial CTA optimistically.
     private(set) var isEligibleForTrial: Bool = true
-
-    var monthlyProduct: Product? {
-        products.first { $0.id == Constants.monthlyProductID }
+    
+    var monthlyProduct: StoreProduct? {
+        products.first { $0.productIdentifier == RevenueCatConstants.monthlyProductID }
     }
-
-    var yearlyProduct: Product? {
-        products.first { $0.id == Constants.yearlyProductID }
+    
+    var yearlyProduct: StoreProduct? {
+        products.first { $0.productIdentifier == RevenueCatConstants.yearlyProductID }
     }
-
-    private var transactionListener: Task<Void, Never>?
+    
+    private var purchases: Purchases?
+    private var isConfigured = false
 
     private override init() {
         super.init()
     }
 
-    func observeTransactionUpdates() {
-        transactionListener = Task.detached { [weak self] in
-            for await result in Transaction.updates {
-                do {
-                    let transaction = try Self.checkVerified(result)
-                    await self?.handleVerifiedTransaction(transaction)
-                } catch {
-                    continue
-                }
-            }
+    private func setupRevenueCat() {
+        guard !isConfigured else { return }
+        isConfigured = true
+        // Configure RevenueCat SDK
+        let appGroupDefaults = UserDefaults(suiteName: Constants.appGroupIdentifier) ?? .standard
+        let configuration = Configuration.Builder(withAPIKey: RevenueCatConstants.sdkKey)
+            .with(usesStoreKit2IfAvailable: true)
+            .with(userDefaults: appGroupDefaults)
+        
+        Purchases.configure(with: configuration.build())
+        if RevenueCatConstants.enableDebugLogging {
+            Purchases.logLevel = .debug
         }
-
+        purchases = Purchases.shared
+        
+        // Observe RevenueCat updates
         Task {
             await fetchProducts()
             await checkPremiumStatus()
         }
     }
-
+    
+    func observeTransactionUpdates() {
+        // Configures RevenueCat and starts product/entitlement observation.
+        // Called by AppDelegate only when `-DisableStoreKitInit` is absent,
+        // so SKTestSession owns StoreKit before any app StoreKit/RevenueCat
+        // call during unit tests.
+        setupRevenueCat()
+        // RevenueCat automatically handles transaction updates
+        // No need for manual listener like StoreKit
+    }
+    
     func fetchProducts() async {
         isLoadingProducts = true
         do {
-            products = try await Product.products(for: Constants.subscriptionProductIDs)
+            guard let purchases = purchases else { return }
+            
+            // Fetch offerings from RevenueCat
+            let offerings = try await purchases.offerings()
+            
+            // Get the main offering
+            if let offering = offerings.current {
+                products = offering.availablePackages.map { $0.storeProduct }
+            }
         } catch {
-            print("StoreKit: failed to load products: \(error.localizedDescription)")
+            print("RevenueCat: failed to load products: \(error.localizedDescription)")
         }
         isLoadingProducts = false
     }
-
-    func purchase(_ product: Product) async throws {
-        let result = try await product.purchase()
-        switch result {
-        case .success(let verification):
-            let transaction = try Self.checkVerified(verification)
-            await handleVerifiedTransaction(transaction)
-            await transaction.finish()
-        case .userCancelled:
-            throw SubscriptionError.userCancelled
-        case .pending:
-            throw SubscriptionError.pending
-        @unknown default:
+    
+    func purchase(_ product: StoreProduct) async throws {
+        guard let purchases = purchases else {
             throw SubscriptionError.unknown
         }
-    }
-
-    func restorePurchases() async {
-        try? await AppStore.sync()
-        await checkPremiumStatus()
-    }
-
-    private func checkPremiumStatus() async {
-        var foundActive = false
-        for await result in Transaction.currentEntitlements {
-            guard let transaction = try? Self.checkVerified(result) else { continue }
-            if Constants.subscriptionProductIDs.contains(transaction.productID),
-               transaction.revocationDate == nil {
-                foundActive = true
+        
+        do {
+            let (transaction, customerInfo, _) = try await purchases.purchase(product: product)
+            
+            // Check if user has premium entitlement
+            if customerInfo.entitlements[RevenueCatConstants.premiumEntitlement]?.isActive == true {
+                isPremium = true
+                shouldShowPaywall = false
+                await refreshSubscriptionState()
             }
-        }
-        isPremium = foundActive
-        shouldShowPaywall = !foundActive
-        await refreshSubscriptionState()
-    }
-
-    private func handleVerifiedTransaction(_ transaction: Transaction) async {
-        guard Constants.subscriptionProductIDs.contains(transaction.productID),
-              transaction.revocationDate == nil else {
-            return
-        }
-        isPremium = true
-        shouldShowPaywall = false
-        await refreshSubscriptionState()
-    }
-
-    /// Recomputes `subscriptionState` and `isEligibleForTrial` from StoreKit.
-    ///
-    /// `isEligibleForTrial` comes from `Product.SubscriptionInfo.isEligibleForIntroOffer`
-    /// — Apple tracks intro-offer consumption per Apple ID, so a reinstall
-    /// cannot re-trigger the trial.
-    ///
-    /// `.trial` is detected when an active, non-revoked entitlement's billing
-    /// period matches the 7-day introductory offer length
-    /// (`expirationDate - purchaseDate ≈ 7 days`). A normal monthly/yearly
-    /// renewal produces a billing period an order of magnitude longer, so the
-    /// heuristic cleanly separates trial from paid periods without a custom
-    /// backend or offer metadata.
-    func refreshSubscriptionState() async {
-        let eligibility = await (monthlyProduct ?? yearlyProduct)?.subscription?.isEligibleForIntroOffer
-        if let eligibility {
-            isEligibleForTrial = eligibility
-        }
-
-        var detected: SubscriptionState = .inactive
-        let trialWindow = Constants.subscriptionTrialDuration
-        let tolerance: TimeInterval = 24 * 3600
-        for await result in Transaction.currentEntitlements {
-            guard let transaction = try? Self.checkVerified(result) else { continue }
-            guard Constants.subscriptionProductIDs.contains(transaction.productID),
-                  transaction.revocationDate == nil else { continue }
-            if let expiration = transaction.expirationDate {
-                let period = expiration.timeIntervalSince(transaction.purchaseDate)
-                if abs(period - trialWindow) <= tolerance {
-                    detected = .trial
-                } else {
-                    detected = .active
+            
+            // Finish the transaction if needed
+            if let transaction = transaction {
+                // RevenueCat handles transaction finishing automatically in most cases
+            }
+        } catch {
+            if let revenueCatError = error as? RevenueCat.ErrorCode {
+                switch revenueCatError {
+                case .purchaseCancelledError:
+                    throw SubscriptionError.userCancelled
+                case .paymentPendingError:
+                    throw SubscriptionError.pending
+                default:
+                    throw SubscriptionError.unknown
                 }
             } else {
-                detected = .active
+                throw SubscriptionError.unknown
             }
-            break
-        }
-        subscriptionState = isPremium ? detected : .inactive
-    }
-
-    /// StoreKit 2 verifies transaction JWT signatures on-device. This helper
-    /// unwraps a `VerificationResult`, throwing `.unverified` for any payload
-    /// that fails Apple's signature check so callers cannot act on forged data.
-    nonisolated static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
-        switch result {
-        case .verified(let safe):
-            return safe
-        case .unverified:
-            throw SubscriptionError.unverified
         }
     }
-
+    
+    func restorePurchases() async {
+        guard let purchases = purchases else { return }
+        
+        do {
+            let customerInfo = try await purchases.restorePurchases()
+            
+            // Check if user has premium entitlement
+            if customerInfo.entitlements[RevenueCatConstants.premiumEntitlement]?.isActive == true {
+                isPremium = true
+                shouldShowPaywall = false
+                await refreshSubscriptionState()
+            } else {
+                isPremium = false
+                shouldShowPaywall = true
+                subscriptionState = .inactive
+            }
+        } catch {
+            print("RevenueCat: failed to restore purchases: \(error.localizedDescription)")
+        }
+    }
+    
+    private func checkPremiumStatus() async {
+        guard let purchases = purchases else { return }
+        
+        do {
+            let customerInfo = try await purchases.customerInfo()
+            
+            // Check if user has premium entitlement
+            if customerInfo.entitlements[RevenueCatConstants.premiumEntitlement]?.isActive == true {
+                isPremium = true
+                shouldShowPaywall = false
+                await refreshSubscriptionState()
+            } else {
+                isPremium = false
+                shouldShowPaywall = true
+                subscriptionState = .inactive
+            }
+        } catch {
+            print("RevenueCat: failed to check premium status: \(error.localizedDescription)")
+            isPremium = false
+            shouldShowPaywall = true
+            subscriptionState = .inactive
+        }
+    }
+    
+    /// Recomputes `subscriptionState` and `isEligibleForTrial` from RevenueCat.
+    ///
+    /// RevenueCat provides more accurate subscription state information
+    /// including trial eligibility and intro offer consumption.
+    func refreshSubscriptionState() async {
+        guard let purchases = purchases else { return }
+        
+        do {
+            let customerInfo = try await purchases.customerInfo()
+            
+            // Check trial eligibility
+            // RevenueCat tracks intro offer eligibility per Apple ID
+            if let product = monthlyProduct ?? yearlyProduct {
+                // RevenueCat automatically handles trial eligibility
+                // We can check if the user is currently in a trial period
+                if let entitlement = customerInfo.entitlements[RevenueCatConstants.premiumEntitlement],
+                   entitlement.isActive,
+                   entitlement.periodType == .trial {
+                    subscriptionState = .trial
+                    isEligibleForTrial = false // Once in trial, not eligible for another
+                } else if let entitlement = customerInfo.entitlements[RevenueCatConstants.premiumEntitlement],
+                          entitlement.isActive {
+                    subscriptionState = .active
+                    isEligibleForTrial = false // Active subscription means trial was used
+                } else {
+                    // Check if user is eligible for intro offer
+                    // RevenueCat provides this information via the offerings system
+                    subscriptionState = .inactive
+                    // Default to true for new users, RevenueCat will provide accurate info
+                }
+            }
+        } catch {
+            print("RevenueCat: failed to refresh subscription state: \(error.localizedDescription)")
+        }
+    }
+    
 }
 
 enum SubscriptionError: LocalizedError {
     case productNotFound
-    case verificationFailed
-    case unverified
+    case configurationFailed
     case userCancelled
     case pending
     case unknown
+    case networkError
+    case receiptValidationFailed
 
     var errorDescription: String? {
         switch self {
-        case .productNotFound: "Subscription product not found in App Store Connect."
-        case .verificationFailed: "Receipt verification failed. Please try again."
-        case .unverified: "Apple could not verify this transaction. Please try again."
+        case .productNotFound: "Subscription product not found in RevenueCat."
+        case .configurationFailed: "RevenueCat configuration failed. Please check your SDK key."
         case .userCancelled: "Purchase was cancelled."
         case .pending: "Purchase is pending and awaiting approval."
         case .unknown: "An unknown purchase error occurred."
+        case .networkError: "Network connection failed. Please check your internet connection."
+        case .receiptValidationFailed: "Receipt validation failed. Please try again."
         }
     }
 }

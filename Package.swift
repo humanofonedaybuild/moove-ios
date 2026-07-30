@@ -13,11 +13,15 @@ let package = Package(
             targets: ["MooveKit"]
         )
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/RevenueCat/purchases-ios", from: "4.0.0"),
+    ],
     targets: [
         .target(
             name: "MooveKit",
-            dependencies: []
+            dependencies: [
+                .product(name: "RevenueCat", package: "purchases-ios"),
+            ]
         ),
         .testTarget(
             name: "MooveTests",

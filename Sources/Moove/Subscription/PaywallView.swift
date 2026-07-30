@@ -1,5 +1,5 @@
 import SwiftUI
-import StoreKit
+import RevenueCat
 import MooveKit
 
 struct PaywallView: View {
@@ -106,7 +106,7 @@ struct PaywallView: View {
                 if let monthly = subscriptionManager.monthlyProduct {
                     PlanCard(
                         title: "Monthly",
-                        price: "\(monthly.displayPrice) / month",
+                        price: "\(monthly.localizedPriceString) / month",
                         trialDuration: "7-day free trial",
                         features: monthlyFeatures,
                         isSelected: selectedPlan == .monthly,
@@ -117,7 +117,7 @@ struct PaywallView: View {
                 if let yearly = subscriptionManager.yearlyProduct {
                     PlanCard(
                         title: "Yearly · Best Value",
-                        price: "\(yearly.displayPrice) / year",
+                        price: "\(yearly.localizedPriceString) / year",
                         trialDuration: "7-day free trial",
                         features: yearlyFeatures,
                         isSelected: selectedPlan == .yearly,
@@ -224,12 +224,12 @@ struct PaywallView: View {
             return "Start 7-Day Free Trial"
         }
         if let product = selectedProduct {
-            return "Subscribe — \(product.displayPrice)"
+            return "Subscribe — \(product.localizedPriceString)"
         }
         return "Subscribe"
     }
 
-    private var selectedProduct: Product? {
+    private var selectedProduct: StoreProduct? {
         switch selectedPlan {
         case .monthly: subscriptionManager.monthlyProduct
         case .yearly: subscriptionManager.yearlyProduct
