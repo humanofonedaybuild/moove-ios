@@ -124,11 +124,10 @@ final class AppAlarmManager: NSObject {
         AlarmMissionActivity.shared.endActivity()
         StepCounter.shared.stopCounting()
         AudioManager.shared.stopAlarmSound()
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(2))
-            activeMission = nil
-            alarmState = .idle
-        }
+        // The completion view ("Good Morning!") stays up until the user taps
+        // "Start Your Day", which calls `cancelMission()` to clear state and
+        // dismiss the cover. A timed auto-dismiss would race the user (and the
+        // UI test) and make the "Start Your Day" button unreachable.
     }
 
     func cancelMission() {
