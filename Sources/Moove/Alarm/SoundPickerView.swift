@@ -169,6 +169,7 @@ struct SoundPickerView: View {
                 .font(MooveFont.title3())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("soundPicker.play.\(sound.id)")
         }
         .padding(.vertical, MooveSpacing.xs)
         .padding(.horizontal, MooveSpacing.xs)

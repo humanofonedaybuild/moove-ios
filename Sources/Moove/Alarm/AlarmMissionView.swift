@@ -45,6 +45,19 @@ struct AlarmMissionView: View {
                 stepGoal: stepCounter.targetStepCount
             )
 
+            #if DEBUG
+            // QA hook (MOO-87): the simulator produces no pedometer or shake
+            // data, so UI tests drive the countdown through this button.
+            if ProcessInfo.processInfo.arguments.contains("-UITestingStepSim") {
+                Button("Simulate 10 steps") {
+                    StepCounter.shared.debugSimulateSteps(10)
+                }
+                .font(MooveFont.caption())
+                .foregroundStyle(Color.taupe)
+                .accessibilityIdentifier("mission.debugStepButton")
+            }
+            #endif
+
             snoozeSection
         }
     }
@@ -119,6 +132,7 @@ struct AlarmMissionView: View {
             }) {
                 Text("Start Your Day")
             }
+            .accessibilityIdentifier("Start Your Day")
             .mooveButton(.primary)
             .padding(.horizontal, MooveSpacing.sm)
             .opacity(completionAnimating ? 1 : 0)

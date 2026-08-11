@@ -116,6 +116,7 @@ struct AlarmEditView: View {
                     .foregroundStyle(Color.espresso)
                     .frame(minWidth: 80)
                     .contentTransition(.numericText())
+                    .accessibilityIdentifier("alarmEdit.stepGoal")
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("steps to wake up")

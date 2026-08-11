@@ -18,6 +18,11 @@ public struct AppSettings: Codable, Sendable, Equatable {
     )
 
     public var snoozeDuration: TimeInterval {
+        #if DEBUG
+        // QA hook (MOO-87): 4-second snooze so UI tests can observe the
+        // re-fire without waiting minutes.
+        if ProcessInfo.processInfo.arguments.contains("-UITestingShortSnooze") { return 4 }
+        #endif
         guard snoozeDurationIndex >= 0,
               snoozeDurationIndex < Constants.snoozeOptions.count
         else { return 300 }

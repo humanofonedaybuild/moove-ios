@@ -1,5 +1,4 @@
 import SwiftUI
-import RevenueCat
 import MooveKit
 
 struct PaywallView: View {
@@ -229,7 +228,7 @@ struct PaywallView: View {
         return "Subscribe"
     }
 
-    private var selectedProduct: StoreProduct? {
+    private var selectedProduct: PaywallProduct? {
         switch selectedPlan {
         case .monthly: subscriptionManager.monthlyProduct
         case .yearly: subscriptionManager.yearlyProduct

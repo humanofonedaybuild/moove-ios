@@ -115,10 +115,20 @@ final class StepCounter: NSObject {
         applyCombinedCount()
     }
 
+    #if DEBUG
+    /// QA hook (MOO-87): simulates physical steps in the simulator, where the
+    /// pedometer and accelerometer produce no movement data. Feeds the same
+    /// monotonic combined-count path as real shake events.
+    func debugSimulateSteps(_ count: Int) {
+        guard isCounting else { return }
+        shakeSteps += count
+        applyCombinedCount()
+    }
+    #endif
+
     /// Merges pedometer + shake progress into a single monotonic count so
     /// neither source can regress the mission counter.
-    private func applyCombinedCount() {
-        currentStepCount = min(pedometerSteps + shakeSteps, targetStepCount)
+    private func applyCombinedCount() {        currentStepCount = min(pedometerSteps + shakeSteps, targetStepCount)
         stepProgress = Double(currentStepCount) / Double(targetStepCount)
         NotificationCenter.default.post(name: .stepCountUpdated, object: nil)
         AlarmMissionActivity.shared.updateActivity(stepsRemaining: targetStepCount - currentStepCount)

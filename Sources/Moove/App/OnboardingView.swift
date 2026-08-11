@@ -113,6 +113,15 @@ struct OnboardingView: View {
             group.leave()
         }
 
+        // AlarmKit authorization is required for `schedule()` to succeed at
+        // all — without this prompt every alarm silently fails to save
+        // (QA MOO-87 P0).
+        group.enter()
+        Task {
+            _ = await AppAlarmManager.shared.requestAuthorizationIfNeeded()
+            group.leave()
+        }
+
         group.notify(queue: .main) { [self] in
             isRequestingPermissions = false
             completeOnboarding()
@@ -241,6 +250,12 @@ private struct PermissionsPage: View {
                 .padding(.top, MooveSpacing.md)
 
             VStack(spacing: MooveSpacing.lg) {
+                PermissionCard(
+                    icon: "alarm.fill",
+                    title: "Alarms",
+                    description: "Lets Moove fire your alarm through Focus, Do Not Disturb, and silent mode."
+                )
+
                 PermissionCard(
                     icon: "figure.walk",
                     title: "Motion & Fitness",

@@ -2,6 +2,7 @@ import SwiftUI
 import MooveKit
 import CoreMotion
 import UserNotifications
+import AlarmKit
 
 struct SettingsView: View {
     @Environment(SubscriptionManager.self)
@@ -121,6 +122,7 @@ struct SettingsView: View {
                         .foregroundStyle(Color.taupe)
                 }
             }
+            .accessibilityIdentifier("settings.defaultSound")
             .mooveListRow()
         } header: {
             Text("Defaults")
@@ -164,6 +166,11 @@ struct SettingsView: View {
 
     private var permissionsSection: some View {
         Section {
+            PermissionRow(
+                icon: "alarm.fill",
+                title: "Alarms",
+                status: alarmAuthorizationStatus
+            )
             PermissionRow(
                 icon: "figure.walk.motion",
                 title: "Motion & Fitness",
@@ -243,6 +250,18 @@ PermissionRow(
         case .active: return "Premium"
         case .inactive: return "Free"
         }
+    }
+
+    private var alarmAuthorizationStatus: String {
+        if #available(iOS 26.0, *) {
+            switch AlarmManager.shared.authorizationState {
+            case .authorized: return "Authorized"
+            case .denied: return "Denied"
+            case .notDetermined: return "Not Determined"
+            @unknown default: return "Unknown"
+            }
+        }
+        return "Unavailable"
     }
 
     private var motionAuthorizationStatus: String {

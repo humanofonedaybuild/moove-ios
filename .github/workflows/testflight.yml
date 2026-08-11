@@ -1,0 +1,89 @@
+name: TestFlight
+
+on:
+  # Manual trigger from the Actions tab (primary path for now).
+  workflow_dispatch:
+    inputs:
+      bump_build:
+        description: "Bump CFBundleVersion before archiving"
+        required: false
+        default: "1"
+      skip_beta_review:
+        description: "Upload but skip beta-review submission note"
+        required: false
+        default: "0"
+  # Automatic TestFlight build when a version tag is pushed.
+  push:
+    tags:
+      - "v*"
+
+env:
+  XCODE_VERSION: "16.0"
+
+jobs:
+  archive-and-upload:
+    name: Archive + upload to TestFlight
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_${XCODE_VERSION}.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Configure signing assets
+        env:
+          # Distribution certificate (base64-encoded .p12) and its password.
+          DIST_CERT_P12: ${{ secrets.DIST_CERT_P12 }}
+          DIST_CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
+          # App Store provisioning profile (base64-encoded .mobileprovision).
+          DIST_PROVISIONING_PROFILE: ${{ secrets.DIST_PROVISIONING_PROFILE }}
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+        run: |
+          if [ -z "$DIST_CERT_P12" ] || [ -z "$DIST_PROVISIONING_PROFILE" ] || [ -z "$DEVELOPMENT_TEAM" ]; then
+            echo "::error::Signing secrets missing. Add DIST_CERT_P12, DIST_CERT_PASSWORD, DIST_PROVISIONING_PROFILE, APPLE_DEVELOPMENT_TEAM, ASC_KEY_P8, ASC_KEY_ID, ASC_ISSUER_ID to repo secrets."
+            exit 1
+          fi
+
+          # Create a temporary keychain and import the distribution certificate.
+          KEYCHAIN="moove-build.keychain-db"
+          KEYCHAIN_PWD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN"
+
+          CERT_PATH="$RUNNER_TEMP/dist.p12"
+          echo "$DIST_CERT_P12" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" -P "$DIST_CERT_PASSWORD" -A -t agg -k "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN" >/dev/null 2>&1 || true
+
+          # Install the provisioning profile.
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$DIST_PROVISIONING_PROFILE" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision
+
+      - name: Write App Store Connect API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p ~/.private_keys
+          echo "$ASC_KEY_P8" | base64 --decode > ~/.private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Archive + upload
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_DEVELOPMENT_TEAM }}
+          ASC_KEY_PATH: ~/.private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          BUMP_BUILD: ${{ github.event.inputs.bump_build || '1' }}
+          SKIP_BETA_REVIEW: ${{ github.event.inputs.skip_beta_review || '0' }}
+        run: ./scripts/archive-and-upload.sh
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain moove-build.keychain-db 2>/dev/null || true
+          rm -f ~/.private_keys/AuthKey_*.p8 || true

@@ -33,8 +33,36 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
         // Screenshot hook: land directly in the Start Walking mission.
         if ProcessInfo.processInfo.arguments.contains("-UITestingStartMission") {
+            var steps = 30
+            let args = ProcessInfo.processInfo.arguments
+            if let idx = args.firstIndex(of: "-UITestingMissionSteps"),
+               idx + 1 < args.count, let parsed = Int(args[idx + 1]) {
+                steps = parsed
+            }
             AppAlarmManager.shared.startMission(for: AlarmConfig(
-                label: "Weekday Alarm", hour: 7, minute: 30, stepGoal: 30
+                label: "QA Mission", hour: 7, minute: 30, stepGoal: steps
+            ))
+        }
+
+        // QA hook (MOO-87): schedule a real AlarmKit alarm ~N seconds out so
+        // end-to-end tests can verify system-level alarm delivery with the app
+        // foregrounded, backgrounded, force-closed, or the device locked.
+        // AlarmKit relative schedules are minute-granular, so the fire time is
+        // rounded up to the next whole minute.
+        if let idx = ProcessInfo.processInfo.arguments.firstIndex(of: "-UITestingScheduleAlarmInSeconds"),
+           idx + 1 < ProcessInfo.processInfo.arguments.count,
+           let seconds = TimeInterval(ProcessInfo.processInfo.arguments[idx + 1]) {
+            let fireDate = Date().addingTimeInterval(seconds)
+            var components = Calendar.current.dateComponents([.hour, .minute], from: fireDate)
+            if Calendar.current.component(.second, from: fireDate) > 5,
+               let bumped = Calendar.current.date(byAdding: .minute, value: 1, to: fireDate) {
+                components = Calendar.current.dateComponents([.hour, .minute], from: bumped)
+            }
+            AppAlarmManager.shared.addAlarm(AlarmConfig(
+                label: "QA Scheduled Alarm",
+                hour: components.hour ?? 7,
+                minute: components.minute ?? 0,
+                stepGoal: 10
             ))
         }
 
@@ -42,7 +70,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
         // SKTestSession must own StoreKit before the app touches it (unit
         // tests inject -DisableStoreKitInit via the scheme's test action).
-        print("ARGPROBE disableStoreKitInit present: \(ProcessInfo.processInfo.arguments.contains("-DisableStoreKitInit")); args: \(ProcessInfo.processInfo.arguments)")
         if !ProcessInfo.processInfo.arguments.contains("-DisableStoreKitInit") {
             SubscriptionManager.shared.observeTransactionUpdates()
         }

@@ -6,6 +6,24 @@ Moove — Step Alarm Clock
 ## Subtitle
 Walk to wake up. Move to stop.
 
+## Primary Category
+Lifestyle
+
+## Secondary Category
+Health & Fitness
+
+## Age Rating
+4+
+
+## Copyright
+© 2025 Moove Inc.
+
+## Promotional Text
+Get up and move. The alarm that only stops when you do.
+
+## Keywords
+alarm,step,walk,wake,morning,sleep,pedometer,fitness,health,motion,activity,shake,mission,routine,wakeup,habit,productive,exercise,workout,motivation
+
 ## Description
 
 Moove is the alarm clock that guarantees you actually get out of bed. Instead of a snooze button, you walk a set number of steps to stop the alarm — starting your day with movement, not frustration.
@@ -35,29 +53,27 @@ Moove is the alarm clock that guarantees you actually get out of bed. Instead of
 - No ads, ever
 - 7-day free trial
 
-## Keywords
-alarm, step, walk, wake, morning, sleep, pedometer, fitness, health, motion, activity, shake, mission, routine, productive
-
-## Promotional Text
-Get up and move. The alarm that only stops when you do.
-
 ## Support URL
 https://moove.app/support
 
 ## Marketing URL
 https://moove.app
 
+## Privacy Policy URL
+https://moove.app/privacy
+
 ## Privacy Policy
 
 Moove collects minimal data to provide the alarm service:
 
-- Step count data is processed on-device via CoreMotion and is not sent to any server
-- Subscription status is managed through Apple's StoreKit and is not stored on external servers
-- No personal information, location data, or health data is collected or transmitted
-- No analytics or tracking SDKs are used
-- Audio files you import remain on your device
+- **Step count data** is processed on-device via CoreMotion and is not sent to any server
+- **Subscription status** is managed through Apple's StoreKit 2 and is not stored on external servers
+- **No personal information**, location data, or health data is collected or transmitted
+- **No analytics or tracking SDKs** are used
+- **Audio files you import** remain on your device
+- **Alarm schedules and preferences** are stored locally in UserDefaults (App Group)
 
-Moove does not share any user data with third parties. All alarm schedules and preferences are stored locally on your device in UserDefaults (App Group).
+Moove does not share any user data with third parties.
 
 ## License
-Proprietary — Moove Inc.
+Proprietary — Moove Inc. All rights reserved.

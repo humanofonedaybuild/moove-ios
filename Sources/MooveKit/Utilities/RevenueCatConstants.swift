@@ -12,6 +12,18 @@ public enum RevenueCatConstants {
     // RevenueCat public SDK keys are safe to ship in the client, but the
     // real value is not committed until the dashboard/app are configured.
     public static let sdkKey = "YOUR_REVENUECAT_PUBLIC_SDK_KEY_HERE"
+
+    /// Whether `sdkKey` holds a real RevenueCat public SDK key.
+    ///
+    /// While the key is the committed placeholder the app must not configure
+    /// the RevenueCat SDK (an invalid key makes every offerings/purchase call
+    /// fail); `SubscriptionManager` reads this flag to fall back to direct
+    /// StoreKit 2 backed by the local `Resources/Moove.storekit` config so
+    /// the paywall and 7-day trial remain fully testable in the simulator.
+    public static var isConfigured: Bool {
+        let key = sdkKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !key.isEmpty && !key.hasPrefix("YOUR_")
+    }
     
     // MARK: - Product IDs
     // These should match the product IDs configured in RevenueCat dashboard
@@ -39,6 +51,6 @@ public enum RevenueCatConstants {
     // MARK: - App Store Connect Configuration
     // These values should match App Store Connect configuration
     
-    public static let appBundleID = "com.moove.alarm"
+    public static let appBundleID = "com.moove.alarmclock"
     public static let appName = "Moove Alarm Clock"
 }

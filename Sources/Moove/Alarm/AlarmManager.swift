@@ -70,9 +70,32 @@ final class AppAlarmManager: NSObject {
         saveAlarms()
     }
 
+    /// Requests AlarmKit authorization when undetermined. Scheduling throws
+    /// `.notAuthorized` without it — previously nothing in the app ever asked,
+    /// so a fresh install silently failed to schedule every alarm (QA MOO-87).
+    @discardableResult
+    func requestAuthorizationIfNeeded() async -> Bool {
+        guard #available(iOS 26.0, *) else { return true }
+        switch AlarmManager.shared.authorizationState {
+        case .authorized:
+            return true
+        case .denied:
+            return false
+        case .notDetermined:
+            let state = try? await AlarmManager.shared.requestAuthorization()
+            return state == .authorized
+        @unknown default:
+            return false
+        }
+    }
+
     private func scheduleAlarm(_ config: AlarmConfig) async {
         guard config.isEnabled else { return }
         guard #available(iOS 26.0, *) else { return }
+        guard await requestAuthorizationIfNeeded() else {
+            print("AlarmKit: authorization not granted — alarm \(config.id) was not scheduled")
+            return
+        }
         let alarmConfig: AlarmManager.AlarmConfiguration<MooveAlarmMetadata> = .make(for: config)
         do {
             _ = try await AlarmManager.shared.schedule(id: config.id, configuration: alarmConfig)
@@ -122,10 +145,14 @@ final class AppAlarmManager: NSObject {
     private var snoozeTask: Task<Void, Never>?
 
     func snoozeAlarm(duration: TimeInterval) {
+        // Snooze is valid both while the alarm is alerting (.firing) and
+        // during the active mission (.missionActive) — the in-app flow jumps
+        // straight to .missionActive on alert, so requiring .firing here
+        // would silently ignore the very first snooze tap (QA MOO-87).
         guard let mission = activeMission,
               mission.snoozeEnabled,
               mission.snoozeRemaining > 0,
-              alarmState == .firing
+              alarmState == .firing || alarmState == .missionActive
         else { return }
         snoozeTask?.cancel()
         var updated = mission

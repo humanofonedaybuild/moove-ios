@@ -57,11 +57,23 @@ final class AlarmConfigTests: XCTestCase {
         XCTAssertEqual(Constants.maxSnoozeOptions, [0, 1, 2, 3],
                        "Max Snooze Limit picker must offer exactly 0, 1, 2, 3")
         XCTAssertTrue(Constants.maxSnoozeOptions.contains(AppSettings.default.snoozeLimit),
-                      "Default snoozeLimit must be a valid picker option")
+                       "Default snoozeLimit must be a valid picker option")
         XCTAssertEqual(Constants.maxSnoozeOptions.first, 0,
                        "0 (snooze disabled) must be selectable")
         XCTAssertEqual(Constants.maxSnoozeOptions.last, 3,
                        "3 must be the maximum selectable snooze count")
+    }
+
+    func testSingleSnoozeAndStepMissionConfiguration() {
+        XCTAssertEqual(Constants.maximumSnoozeCount, 1,
+                       "Mission allows a single snooze; SnoozeChip grays out once it is consumed")
+        XCTAssertEqual(AlarmConfig.defaultStepRange, 10...100,
+                       "Step goal picker must offer 10–100")
+        XCTAssertEqual(AlarmConfig.stepInterval, 10,
+                       "Step goal picker must step in intervals of 10")
+        XCTAssertEqual(Constants.StepTracking.minimumSteps, 10)
+        XCTAssertEqual(Constants.StepTracking.maximumSteps, 100)
+        XCTAssertEqual(Constants.StepTracking.stepInterval, 10)
     }
 
     func testWeekdaySummary() {
