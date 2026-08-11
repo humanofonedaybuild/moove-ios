@@ -35,12 +35,15 @@ final class SubscriptionStoreKitTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        let testBundle = Bundle(for: Self.self)
-        guard let url = testBundle.url(forResource: "Moove", withExtension: "storekit") else {
-            XCTFail("Moove.storekit not found in test bundle")
-            throw NSError(domain: "Test", code: 1)
-        }
-        let session = try SKTestSession(contentsOf: url)
+        // Bind to the scheme's StoreKit configuration by name. The
+        // `configurationFileNamed:` init lets storekitd register the config
+        // with the test-host app (com.moove.alarmclock) via the scheme's
+        // TestAction StoreKitConfigurationFileReference; the standalone
+        // `contentsOf:` init fails with SKInternalErrorDomain Code=3
+        // ("Error saving configuration file") on iOS 26 because storekitd
+        // cannot bind an unregistered config to the app. The scheme config
+        // is injected by scripts/patch-scheme-storekit.py after xcodegen.
+        let session = try SKTestSession(configurationFileNamed: "Moove")
         session.disableDialogs = true
         session.resetToDefaultState()
         self.session = session
