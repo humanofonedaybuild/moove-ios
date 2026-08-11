@@ -7,11 +7,10 @@ public enum RevenueCatConstants {
     // For development: Use RevenueCat's test mode
     // For production: Use RevenueCat's production key
     
-    // Placeholder — the board must replace this with the real RevenueCat
-    // Public SDK Key from the dashboard (Project → Apps → API Keys).
-    // RevenueCat public SDK keys are safe to ship in the client, but the
-    // real value is not committed until the dashboard/app are configured.
-    public static let sdkKey = "YOUR_REVENUECAT_PUBLIC_SDK_KEY_HERE"
+    // Public SDK Key from the RevenueCat dashboard (Project → Apps → API Keys),
+    // provided by the board in MOO-77. RevenueCat public SDK keys are safe to
+    // ship in the client binary.
+    public static let sdkKey = "test_MMhJClpZuRprhVBfpDvBRsMfAOL"
 
     /// Whether `sdkKey` holds a real RevenueCat public SDK key.
     ///

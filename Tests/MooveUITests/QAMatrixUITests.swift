@@ -129,8 +129,13 @@ final class QAMatrixUITests: XCTestCase {
                       "Reaching zero steps must complete the mission and silence the alarm")
         save("qa-02-mission-complete")
 
-        // Completion → back to main UI.
-        app.buttons["Start Your Day"].tap()
+        // Completion → back to main UI. The "Start Your Day" button fades in
+        // after the celebration animation (0.35s delay), so wait for it to
+        // enter the accessibility tree before tapping.
+        let startYourDay = app.buttons["Start Your Day"]
+        XCTAssertTrue(startYourDay.waitForExistence(timeout: 5),
+                      "Completion button must appear after the mission completes")
+        startYourDay.tap()
         waitForMainInterface()
     }
 

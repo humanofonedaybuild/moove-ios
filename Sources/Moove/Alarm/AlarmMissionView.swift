@@ -25,6 +25,19 @@ struct AlarmMissionView: View {
         }
         .padding(.horizontal, MooveSpacing.xxxl)
         .mooveScreenBackground()
+        .onAppear {
+            // If the mission was already completed when this view was presented
+            // (e.g. the cover opened after state flipped to .stopped), the
+            // onChange below never fires and the completion button would stay
+            // hidden. Flip the flag on appear in that case so the completion
+            // UI — and its "Start Your Day" button — is always reachable.
+            if alarmManager.alarmState == .stopped, !completionAnimating {
+                triggerCompletionHaptic()
+                withAnimation(.spring(response: MooveAnimationDuration.celebration, dampingFraction: 0.5)) {
+                    completionAnimating = true
+                }
+            }
+        }
         .onChange(of: alarmManager.alarmState) { _, newState in
             if newState == .stopped {
                 triggerCompletionHaptic()
