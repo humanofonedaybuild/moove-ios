@@ -14,14 +14,17 @@ public enum RevenueCatConstants {
 
     /// Whether `sdkKey` holds a real RevenueCat public SDK key.
     ///
-    /// While the key is the committed placeholder the app must not configure
-    /// the RevenueCat SDK (an invalid key makes every offerings/purchase call
-    /// fail); `SubscriptionManager` reads this flag to fall back to direct
-    /// StoreKit 2 backed by the local `Resources/Moove.storekit` config so
-    /// the paywall and 7-day trial remain fully testable in the simulator.
+    /// RevenueCat public SDK keys carry a platform prefix (`appl_` for Apple,
+    /// `goog_` for Google, `amzn_` for Amazon). Any other prefix — including
+    /// the committed `test_` and `YOUR_` placeholders — is not a valid key:
+    /// configuring RevenueCat with it makes every offerings/purchase call
+    /// fail. While the key is a placeholder `SubscriptionManager` reads this
+    /// flag to fall back to direct StoreKit 2 backed by the local
+    /// `Resources/Moove.storekit` config so the paywall and 7-day trial
+    /// remain fully testable in the simulator (MOO-86).
     public static var isConfigured: Bool {
         let key = sdkKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !key.isEmpty && !key.hasPrefix("YOUR_")
+        return !key.isEmpty && key.hasPrefix("appl_")
     }
     
     // MARK: - Product IDs
