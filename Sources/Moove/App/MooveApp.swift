@@ -1,5 +1,5 @@
-import SwiftUI
 import MooveKit
+import SwiftUI
 
 @main
 struct MooveApp: App {
@@ -26,12 +26,46 @@ struct MooveApp: App {
         bar.compactAppearance = appearance
     }
 
+    @State private var hasLoaded = false
+
+    private var holdForCapture: Bool {
+        // Screenshot/UI-test hook: keep the launch loading surface on screen so
+        // capture tooling can grab a clean shot of the Moove monogram state.
+        ProcessInfo.processInfo.arguments.contains("-UITestingHoldLoadingScreen")
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(AppAlarmManager.shared)
                 .environment(StepCounter.shared)
                 .environment(SubscriptionManager.shared)
+                .overlay {
+                    if !hasLoaded {
+                        LoadingView()
+                            .transition(.opacity)
+                    }
+                }
+                .task {
+                    let minBrandMoment: Duration = .seconds(1.2)
+                    let start = ContinuousClock.now
+                    await loadApp()
+                    let elapsed = ContinuousClock.now - start
+                    if elapsed < minBrandMoment {
+                        try? await Task.sleep(for: minBrandMoment - elapsed)
+                    }
+                    if !holdForCapture {
+                        withAnimation(.easeInOut(duration: MooveAnimationDuration.standard)) {
+                            hasLoaded = true
+                        }
+                    }
+                }
         }
+    }
+
+    private func loadApp() async {
+        // App essentials are warmed in AppDelegate.didFinishLaunching. Nothing
+        // here should block the launch surface; the timer above only guarantees
+        // the brand moment reads before the overlay fades.
     }
 }
