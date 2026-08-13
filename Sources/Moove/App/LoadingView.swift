@@ -14,9 +14,9 @@ struct LoadingView: View {
 
     var body: some View {
         ZStack {
-            Color.cream.ignoresSafeArea()
+            Color.terracotta.ignoresSafeArea()
 
-            VStack(spacing: MooveSpacing.xxl) {
+            VStack(spacing: MooveSpacing.md) {
                 Image("MooveMonogram")
                     .resizable()
                     .interpolation(.medium)
@@ -27,8 +27,8 @@ struct LoadingView: View {
                     .accessibilityHidden(true)
 
                 Text("Moove")
-                    .font(MooveFont.title(weight: .regular))
-                    .foregroundStyle(Color.espresso)
+                    .font(MooveFont.wordmark())
+                    .foregroundStyle(Color.loadingWordmark)
                     .tracking(2.4)
                     .opacity(monogramOpacity)
                     .accessibilityHidden(true)

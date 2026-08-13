@@ -36,6 +36,7 @@ targets:
           - CormorantGaramond-Variable.ttf
           - CormorantGaramond-Italic-Variable.ttf
           - Manrope-Variable.ttf
+          - Poppins-SemiBold.ttf
         UIBackgroundModes:
           - audio
           - processing

@@ -8,6 +8,7 @@ public extension Color {
     static let terracotta = Color(red: 214 / 255, green: 112 / 255, blue: 92 / 255)
     static let hairline = Color(red: 224 / 255, green: 220 / 255, blue: 209 / 255)
     static let sage = Color(red: 162 / 255, green: 179 / 255, blue: 152 / 255)
+    static let loadingWordmark = Color(red: 245 / 255, green: 242 / 255, blue: 235 / 255)
 
     static let brandPrimary = espresso
     static let brandAccent = terracotta
@@ -23,6 +24,7 @@ public extension ShapeStyle where Self == Color {
     static var terracotta: Color { .terracotta }
     static var hairline: Color { .hairline }
     static var sage: Color { .sage }
+    static var loadingWordmark: Color { .loadingWordmark }
     static var brandPrimary: Color { .brandPrimary }
     static var brandAccent: Color { .brandAccent }
     static var brandSuccess: Color { .brandSuccess }

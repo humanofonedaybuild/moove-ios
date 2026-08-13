@@ -4,6 +4,7 @@ public enum MooveFont {
     public static let displayName = "CormorantGaramond-Light"
     public static let displayItalicName = "CormorantGaramond-LightItalic"
     public static let bodyName = "Manrope-ExtraLight"
+    public static let wordmarkName = "Poppins-SemiBold"
 
     public static func largeTitle(weight: Font.Weight = .regular) -> Font {
         display(size: 42, weight: weight, relativeTo: .largeTitle)
@@ -59,6 +60,10 @@ public enum MooveFont {
 
     public static func stepCount(size: CGFloat = 80) -> Font {
         .custom(displayName, size: size, relativeTo: .largeTitle)
+    }
+
+    public static func wordmark(size: CGFloat = 28) -> Font {
+        .custom(wordmarkName, size: size, relativeTo: .title2)
     }
 
     public static func timePicker(size: CGFloat = 48) -> Font {
