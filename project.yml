@@ -50,6 +50,9 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         CFBundleIconName: AppIcon
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "4"
+        ITSAppUsesNonExemptEncryption: false
         AlarmKitAlarmConfiguration:
           - NSExtension
     sources:
