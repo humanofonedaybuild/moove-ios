@@ -66,6 +66,15 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             ))
         }
 
+        // Screenshot/QA hook: present the premium paywall immediately on
+        // launch (post-onboarding) so the paywall can be captured/verified
+        // without driving through onboarding + Settings. Only fires when
+        // onboarding is already completed; otherwise no-op.
+        if ProcessInfo.processInfo.arguments.contains("-UITestingShowPaywall"),
+           UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+            SubscriptionManager.shared.shouldShowPaywall = true
+        }
+
         AudioManager.shared.configureAudioSession()
 
         // SKTestSession must own StoreKit before the app touches it (unit

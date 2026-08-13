@@ -14,6 +14,12 @@ final class SubscriptionManager: NSObject {
     var isLoadingProducts: Bool = false
     var products: [PaywallProduct] = []
 
+    /// `true` when the most recent `fetchProducts()` threw or returned no
+    /// products. The paywall uses this (with `products.isEmpty`) to render a
+    /// graceful "pricing unavailable" fallback with a Retry instead of a dead
+    /// primary CTA, so the user is never trapped on the screen (MOO-112).
+    private(set) var productsLoadFailed: Bool = false
+
     /// Current lifecycle state (`.inactive` / `.trial` / `.active`). Refreshed
     /// by `refreshSubscriptionState()` from the active backend's entitlements.
     private(set) var subscriptionState: SubscriptionState = .inactive
@@ -99,7 +105,10 @@ final class SubscriptionManager: NSObject {
 
         switch backend {
         case .revenueCat:
-            guard let purchases else { return }
+            guard let purchases else {
+                productsLoadFailed = true
+                return
+            }
             do {
                 // Fetch offerings from RevenueCat
                 let offerings = try await purchases.offerings()
@@ -108,16 +117,22 @@ final class SubscriptionManager: NSObject {
                 if let offering = offerings.current {
                     products = offering.availablePackages.map { PaywallProduct(backing: .revenueCat($0.storeProduct)) }
                 }
+                productsLoadFailed = products.isEmpty
             } catch {
                 print("RevenueCat: failed to load products: \(error.localizedDescription)")
+                productsLoadFailed = true
             }
         case .storeKit:
             do {
                 let storeProducts = try await StoreKit.Product.products(for: RevenueCatConstants.subscriptionProductIDs)
                 products = storeProducts.map { PaywallProduct(backing: .storeKit($0)) }
-                await refreshStoreKitTrialEligibility()
+                productsLoadFailed = products.isEmpty
+                if !products.isEmpty {
+                    await refreshStoreKitTrialEligibility()
+                }
             } catch {
                 print("StoreKit: failed to load products: \(error.localizedDescription)")
+                productsLoadFailed = true
             }
         }
     }

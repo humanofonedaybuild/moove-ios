@@ -28,6 +28,14 @@ struct PaywallView: View {
         .scrollDismissesKeyboard(.interactively)
         .mooveScreenBackground()
         .task {
+            // The paywall owns its product load so it never depends on the
+            // AppDelegate's background fetch having completed (MOO-112: the
+            // onboarding→paywall path surfaced "pricing unavailable" when the
+            // background fetch raced the user). Fetch is idempotent and
+            // cheap; refresh the entitlement/trial state afterwards.
+            if subscriptionManager.products.isEmpty && !subscriptionManager.isLoadingProducts {
+                await subscriptionManager.fetchProducts()
+            }
             await subscriptionManager.refreshSubscriptionState()
         }
     }
@@ -85,13 +93,24 @@ struct PaywallView: View {
                         .font(MooveFont.subheadline())
                         .foregroundStyle(Color.taupe)
 
+                    Text(subscriptionManager.productsLoadFailed
+                         ? "We couldn't load subscription options. Check your connection and try again."
+                         : "We couldn't load subscription options right now.")
+                        .font(MooveFont.caption())
+                        .foregroundStyle(Color.taupe.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 260)
+
                     Button {
                         Task { await subscriptionManager.fetchProducts() }
                     } label: {
                         Text("Retry")
                             .font(MooveFont.caption())
                             .foregroundStyle(Color.terracotta)
+                            .frame(width: 200, height: 44)
                     }
+                    .accessibilityIdentifier("paywall.retryButton")
                 }
             } else {
                 Text("Start your 7-day free trial")
@@ -173,25 +192,33 @@ struct PaywallView: View {
                     .multilineTextAlignment(.center)
             }
 
-            Button(action: purchase) {
-                HStack(spacing: MooveSpacing.sm) {
-                    if isPurchasing {
-                        ProgressView()
-                            .tint(.cream)
+            // Only render the purchase CTA when a product is actually
+            // selectable. When products failed to load the pricing section
+            // already surfaces a Retry; rendering a permanently-disabled
+            // "Start 7-Day Free Trial" button here traps the user on the
+            // screen ("button does nothing / app hangs" — MOO-112).
+            if selectedProduct != nil {
+                Button(action: purchase) {
+                    HStack(spacing: MooveSpacing.sm) {
+                        if isPurchasing {
+                            ProgressView()
+                                .tint(.cream)
+                        }
+
+                        Text(isPurchasing ? "Please wait..." : ctaLabel)
                     }
-
-                    Text(isPurchasing ? "Please wait..." : ctaLabel)
                 }
-            }
-            .mooveButton(.primary)
-            .disabled(isPurchasing || subscriptionManager.isLoadingProducts || selectedProduct == nil)
+                .mooveButton(.primary)
+                .disabled(isPurchasing || subscriptionManager.isLoadingProducts)
+                .accessibilityIdentifier("paywall.startTrialButton")
 
-            Button {
-                Task { await subscriptionManager.restorePurchases() }
-            } label: {
-                Text("Restore Purchases")
+                Button {
+                    Task { await subscriptionManager.restorePurchases() }
+                } label: {
+                    Text("Restore Purchases")
+                }
+                .mooveButton(.secondary)
             }
-            .mooveButton(.secondary)
 
             Button {
                 dismiss()
@@ -201,6 +228,7 @@ struct PaywallView: View {
                     .foregroundStyle(Color.taupe)
                     .frame(width: 200, height: 44)
             }
+            .accessibilityIdentifier("paywall.maybeLaterButton")
 
             legalLinks
         }
