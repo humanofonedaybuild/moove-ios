@@ -75,7 +75,6 @@ targets:
         COM_MOOVE_APP_GROUP: group.com.moove.alarmclock
       configs:
         Release:
-          CODE_SIGN_IDENTITY: "iPhone Distribution"
           CODE_SIGN_STYLE: Automatic
           DEVELOPMENT_TEAM: XW22K9BK79
     entitlements:
