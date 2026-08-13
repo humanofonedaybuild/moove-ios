@@ -9,8 +9,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // UI-test/screenshot hook: start every launch from the first
         // onboarding page without shadowing later writes to the key.
         // Register defaults FIRST so @AppStorage picks up the correct value.
-        if ProcessInfo.processInfo.arguments.contains("-UITestingResetOnboarding") {
-            UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
+        if ProcessInfo.processInfo.arguments.contains(LaunchSequence.resetOnboardingArgument) {
+            LaunchSequence.setOnboardingCompleted(false)
         }
 
         // Screenshot hook: seed representative alarms for the list screen.
@@ -71,7 +71,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         // without driving through onboarding + Settings. Only fires when
         // onboarding is already completed; otherwise no-op.
         if ProcessInfo.processInfo.arguments.contains("-UITestingShowPaywall"),
-           UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
+           LaunchSequence.isOnboardingCompleted() {
             SubscriptionManager.shared.shouldShowPaywall = true
         }
 
@@ -88,5 +88,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         StepCounter.shared.requestAuthorization()
+        if !ProcessInfo.processInfo.arguments.contains("-DisableStoreKitInit") {
+            Task { await SubscriptionManager.shared.refreshSubscriptionState() }
+        }
     }
 }

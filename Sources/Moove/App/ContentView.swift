@@ -2,7 +2,7 @@ import SwiftUI
 import MooveKit
 
 struct ContentView: View {
-    @AppStorage("hasCompletedOnboarding")
+    @AppStorage(LaunchSequence.onboardingCompletedKey)
     private var hasCompletedOnboarding = false
 
     @Environment(AppAlarmManager.self)
@@ -47,11 +47,22 @@ struct ContentView: View {
         )) {
             AlarmMissionView()
         }
+        .fullScreenCover(isPresented: .init(
+            get: { subscriptionManager.requiresHardPaywall },
+            set: { _ in }
+        )) {
+            PaywallView(mode: .required)
+                .interactiveDismissDisabled()
+        }
         .sheet(isPresented: .init(
-            get: { !subscriptionManager.isPremium && subscriptionManager.shouldShowPaywall },
+            get: {
+                !subscriptionManager.requiresHardPaywall
+                    && !subscriptionManager.isPremium
+                    && subscriptionManager.shouldShowPaywall
+            },
             set: { if !$0 { subscriptionManager.shouldShowPaywall = false } }
         )) {
-            PaywallView()
+            PaywallView(mode: .optional)
         }
     }
 }
@@ -59,6 +70,9 @@ struct ContentView: View {
 struct AlarmListView: View {
     @Environment(AppAlarmManager.self)
     private var alarmManager
+
+    @Environment(SubscriptionManager.self)
+    private var subscriptionManager
 
     @State private var showingAddSheet = false
     @State private var editingConfig: AlarmConfig?
@@ -71,6 +85,11 @@ struct AlarmListView: View {
                     emptyState
                 } else {
                     listContent
+                }
+            }
+            .safeAreaInset(edge: .top) {
+                if subscriptionManager.shouldShowGraceBanner {
+                    TrialGraceBanner(endsAt: subscriptionManager.subscriptionAccess.graceEndsAt)
                 }
             }
             .mooveScreenBackground()
@@ -228,5 +247,60 @@ struct AlarmRowView: View {
             get: { config.isEnabled },
             set: { _ in alarmManager.toggleAlarm(config) }
         )
+    }
+}
+
+struct TrialGraceBanner: View {
+    let endsAt: Date?
+
+    @Environment(SubscriptionManager.self)
+    private var subscriptionManager
+
+    var body: some View {
+        Button {
+            subscriptionManager.shouldShowPaywall = true
+        } label: {
+            HStack(alignment: .top, spacing: MooveSpacing.md) {
+                Image(systemName: "exclamationmark.circle")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color.terracotta)
+                    .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: MooveSpacing.xs) {
+                    Text("Trial ended")
+                        .font(MooveFont.headline())
+                        .foregroundStyle(Color.espresso)
+
+                    Text(bannerCopy)
+                        .font(MooveFont.caption())
+                        .foregroundStyle(Color.taupe)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(MooveSpacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.terracotta.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: MooveCornerRadius.md, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: MooveCornerRadius.md, style: .continuous)
+                    .stroke(Color.terracotta.opacity(0.25), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, MooveSpacing.xl)
+        .padding(.top, MooveSpacing.sm)
+        .accessibilityIdentifier("alarmList.trialGraceBanner")
+    }
+
+    private var bannerCopy: String {
+        if let endsAt {
+            let remaining = max(0, endsAt.timeIntervalSinceNow)
+            let hours = max(1, Int(ceil(remaining / 3600)))
+            return "Subscribe within \(hours)h to keep your alarms working."
+        }
+        return "Subscribe within 24 hours to keep your alarms working."
     }
 }

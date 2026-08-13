@@ -91,6 +91,10 @@ final class AppAlarmManager: NSObject {
 
     private func scheduleAlarm(_ config: AlarmConfig) async {
         guard config.isEnabled else { return }
+        guard SubscriptionManager.shared.canUseAlarms else {
+            print("AlarmKit: subscription locked — alarm \(config.id) was not scheduled")
+            return
+        }
         guard #available(iOS 26.0, *) else { return }
         guard await requestAuthorizationIfNeeded() else {
             print("AlarmKit: authorization not granted — alarm \(config.id) was not scheduled")
@@ -109,7 +113,25 @@ final class AppAlarmManager: NSObject {
         try? AlarmManager.shared.cancel(id: config.id)
     }
 
+    func suspendAllScheduledAlarms() {
+        for config in alarms where config.isEnabled {
+            cancelAlarm(config)
+        }
+    }
+
+    func rescheduleEnabledAlarms() async {
+        for config in alarms where config.isEnabled {
+            await scheduleAlarm(config)
+        }
+    }
+
     func startMission(for config: AlarmConfig) {
+        guard SubscriptionManager.shared.canUseAlarms else {
+            cancelAlarm(config)
+            AudioManager.shared.stopAlarmSound()
+            SubscriptionManager.shared.presentRequiredPaywall()
+            return
+        }
         activeMission = config
         alarmState = .missionActive
         missionStartTime = Date()
@@ -175,6 +197,11 @@ final class AppAlarmManager: NSObject {
     }
 
     private func fireAlarm(_ config: AlarmConfig) {
+        guard SubscriptionManager.shared.canUseAlarms else {
+            cancelAlarm(config)
+            SubscriptionManager.shared.presentRequiredPaywall()
+            return
+        }
         alarmState = .firing
         AudioManager.shared.playAlarmSound(named: config.soundName)
     }
@@ -199,8 +226,13 @@ final class AppAlarmManager: NSObject {
                 for alarm in alarms {
                     guard alarm.state == .alerting else { continue }
                     if let config = self.alarms.first(where: { $0.id == alarm.id }) {
-                        self.startMission(for: config)
-                    } else {
+                        if SubscriptionManager.shared.canUseAlarms {
+                            self.startMission(for: config)
+                        } else {
+                            self.cancelAlarm(config)
+                            SubscriptionManager.shared.presentRequiredPaywall()
+                        }
+                    } else if SubscriptionManager.shared.canUseAlarms {
                         self.startMission(for: AlarmConfig(stepGoal: 30))
                     }
                 }

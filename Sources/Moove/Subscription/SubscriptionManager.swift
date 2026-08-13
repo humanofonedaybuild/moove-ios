@@ -20,9 +20,25 @@ final class SubscriptionManager: NSObject {
     /// primary CTA, so the user is never trapped on the screen (MOO-112).
     private(set) var productsLoadFailed: Bool = false
 
-    /// Current lifecycle state (`.inactive` / `.trial` / `.active`). Refreshed
-    /// by `refreshSubscriptionState()` from the active backend's entitlements.
+    /// Current lifecycle state. Refreshed by `refreshSubscriptionState()`.
     private(set) var subscriptionState: SubscriptionState = .inactive
+
+    /// Post-trial access gate (full / 24h grace / hard lock).
+    private(set) var subscriptionAccess: SubscriptionAccess = .full
+
+    var canUseAlarms: Bool { subscriptionAccess.canUseAlarms }
+    var requiresHardPaywall: Bool { subscriptionAccess.requiresHardPaywall }
+    var shouldShowGraceBanner: Bool { subscriptionAccess.graceEndsAt != nil }
+
+    /// Injected clock for grace/expiry tests. Production always uses `Date()`.
+    var nowProvider: () -> Date = Date.init
+
+    /// Persistence for the last known intro-trial expiration. Isolated managers
+    /// in tests can swap this to a throwaway suite.
+    var persistence: UserDefaults = UserDefaults(suiteName: Constants.appGroupIdentifier) ?? .standard
+
+    private static let trialExpirationDefaultsKey = "moove.subscription.lastTrialExpiration"
+    private var wasHardLocked = false
 
     /// Whether the Apple account can still redeem the 7-day introductory
     /// trial offer. Becomes `false` once any subscription in the group has
@@ -160,6 +176,8 @@ final class SubscriptionManager: NSObject {
                 isPremium = true
                 shouldShowPaywall = false
                 await refreshSubscriptionState()
+            } else {
+                await refreshSubscriptionState()
             }
         } catch {
             if let revenueCatError = error as? RevenueCat.ErrorCode {
@@ -215,15 +233,8 @@ final class SubscriptionManager: NSObject {
                 let customerInfo = try await purchases.restorePurchases()
 
                 // Check if user has premium entitlement
-                if customerInfo.entitlements[RevenueCatConstants.premiumEntitlement]?.isActive == true {
-                    isPremium = true
-                    shouldShowPaywall = false
-                    await refreshSubscriptionState()
-                } else {
-                    isPremium = false
-                    shouldShowPaywall = true
-                    subscriptionState = .inactive
-                }
+                await applyRevenueCatCustomerInfo(customerInfo)
+                if !isPremium { shouldShowPaywall = true }
             } catch {
                 print("RevenueCat: failed to restore purchases: \(error.localizedDescription)")
             }
@@ -262,18 +273,16 @@ final class SubscriptionManager: NSObject {
             // is shown only on user intent (Settings → Upgrade, post-onboarding,
             // failed restore). Auto-presenting on every cold launch blocks the
             // main UI for free users (QA MOO-87).
-            if customerInfo.entitlements[RevenueCatConstants.premiumEntitlement]?.isActive == true {
-                isPremium = true
-                shouldShowPaywall = false
-                await refreshSubscriptionState()
-            } else {
-                isPremium = false
-                subscriptionState = .inactive
-            }
+            await applyRevenueCatCustomerInfo(customerInfo)
         } catch {
             print("RevenueCat: failed to check premium status: \(error.localizedDescription)")
             isPremium = false
-            subscriptionState = .inactive
+            applyResolvedAccess(
+                hasCurrentEntitlement: false,
+                isInIntroductoryOffer: false,
+                lastTrialExpiration: persistedTrialExpiration(),
+                hasExpiredSubscriptionStatus: persistedTrialExpiration() != nil
+            )
         }
     }
 
@@ -294,30 +303,30 @@ final class SubscriptionManager: NSObject {
 
         do {
             let customerInfo = try await purchases.customerInfo()
-
-            // Check trial eligibility
-            // RevenueCat tracks intro offer eligibility per Apple ID
-            if let product = monthlyProduct ?? yearlyProduct {
-                // RevenueCat automatically handles trial eligibility
-                // We can check if the user is currently in a trial period
-                if let entitlement = customerInfo.entitlements[RevenueCatConstants.premiumEntitlement],
-                   entitlement.isActive,
-                   entitlement.periodType == .trial {
-                    subscriptionState = .trial
-                    isEligibleForTrial = false // Once in trial, not eligible for another
-                } else if let entitlement = customerInfo.entitlements[RevenueCatConstants.premiumEntitlement],
-                          entitlement.isActive {
-                    subscriptionState = .active
-                    isEligibleForTrial = false // Active subscription means trial was used
-                } else {
-                    // Check if user is eligible for intro offer
-                    // RevenueCat provides this information via the offerings system
-                    subscriptionState = .inactive
-                    // Default to true for new users, RevenueCat will provide accurate info
-                }
-            }
+            await applyRevenueCatCustomerInfo(customerInfo)
         } catch {
             print("RevenueCat: failed to refresh subscription state: \(error.localizedDescription)")
+        }
+    }
+
+    private func applyRevenueCatCustomerInfo(_ customerInfo: CustomerInfo) async {
+        let entitlement = customerInfo.entitlements[RevenueCatConstants.premiumEntitlement]
+        let isActive = entitlement?.isActive == true
+        let isTrial = isActive && entitlement?.periodType == .trial
+        if isActive, let expiration = entitlement?.expirationDate ?? customerInfo.latestExpirationDate {
+            persistTrialExpiration(expiration)
+        }
+        let expiredStatus = !isActive && (
+            customerInfo.latestExpirationDate != nil || persistedTrialExpiration() != nil
+        )
+        applyResolvedAccess(
+            hasCurrentEntitlement: isActive,
+            isInIntroductoryOffer: isTrial,
+            lastTrialExpiration: persistedTrialExpiration() ?? customerInfo.latestExpirationDate,
+            hasExpiredSubscriptionStatus: expiredStatus
+        )
+        if isActive {
+            isEligibleForTrial = false
         }
     }
 
@@ -363,12 +372,149 @@ final class SubscriptionManager: NSObject {
             }
         }
 
-        isPremium = hasActiveSubscription
-        // Deliberately no `shouldShowPaywall` write here: this is a passive
-        // refresh and must not pop the paywall over the main UI on launch
-        // (QA MOO-87). Restore/purchase paths set it explicitly.
-        subscriptionState = hasActiveSubscription ? (isInTrialPeriod ? .trial : .active) : .inactive
+        let trialExpiration = await storeKitTrialExpiration()
+        var expiredStatus = false
+        for product in products {
+            guard case .storeKit(let storeProduct) = product.backing,
+                  let subscription = storeProduct.subscription else { continue }
+            if let statuses = try? await subscription.status {
+                expiredStatus = statuses.contains { $0.state == .expired }
+            }
+            break
+        }
+        if !hasActiveSubscription,
+           let persisted = persistedTrialExpiration(),
+           persisted <= nowProvider() {
+            expiredStatus = true
+        }
+
+        applyResolvedAccess(
+            hasCurrentEntitlement: hasActiveSubscription,
+            isInIntroductoryOffer: isInTrialPeriod,
+            lastTrialExpiration: trialExpiration,
+            hasExpiredSubscriptionStatus: expiredStatus
+        )
         await refreshStoreKitTrialEligibility()
+    }
+
+    func presentRequiredPaywall() {
+        shouldShowPaywall = true
+    }
+
+    func applyResolvedAccessForTesting(
+        hasCurrentEntitlement: Bool,
+        isInIntroductoryOffer: Bool,
+        lastTrialExpiration: Date?,
+        hasExpiredSubscriptionStatus: Bool
+    ) {
+        applyResolvedAccess(
+            hasCurrentEntitlement: hasCurrentEntitlement,
+            isInIntroductoryOffer: isInIntroductoryOffer,
+            lastTrialExpiration: lastTrialExpiration,
+            hasExpiredSubscriptionStatus: hasExpiredSubscriptionStatus
+        )
+    }
+
+    private func applyResolvedAccess(
+        hasCurrentEntitlement: Bool,
+        isInIntroductoryOffer: Bool,
+        lastTrialExpiration: Date?,
+        hasExpiredSubscriptionStatus: Bool
+    ) {
+        let now = nowProvider()
+        var trialEnd = lastTrialExpiration
+        if hasExpiredSubscriptionStatus, !hasCurrentEntitlement {
+            if trialEnd == nil || (trialEnd ?? now) > now {
+                persistTrialExpiration(now)
+                trialEnd = now
+            }
+        }
+
+        let access = SubscriptionAccessPolicy.resolve(
+            hasCurrentEntitlement: hasCurrentEntitlement,
+            lastTrialExpiration: trialEnd,
+            hasExpiredSubscriptionStatus: hasExpiredSubscriptionStatus,
+            now: now
+        )
+
+        isPremium = hasCurrentEntitlement
+        subscriptionAccess = access
+        if hasCurrentEntitlement {
+            subscriptionState = isInIntroductoryOffer ? .trial : .active
+            if isPremium { shouldShowPaywall = false }
+        } else {
+            switch access {
+            case .trialGrace:
+                subscriptionState = .trialGrace
+            case .blocked:
+                subscriptionState = .expired
+                shouldShowPaywall = true
+            case .full:
+                subscriptionState = .inactive
+            @unknown default:
+                subscriptionState = .inactive
+            }
+        }
+        enforceAlarmAccess()
+    }
+
+    private func enforceAlarmAccess() {
+        guard self === SubscriptionManager.shared else { return }
+        if subscriptionAccess.requiresHardPaywall {
+            wasHardLocked = true
+            AppAlarmManager.shared.suspendAllScheduledAlarms()
+            return
+        }
+        if wasHardLocked {
+            wasHardLocked = false
+            Task { await AppAlarmManager.shared.rescheduleEnabledAlarms() }
+        }
+    }
+
+    private func persistTrialExpiration(_ date: Date) {
+        let existing = persistence.object(forKey: Self.trialExpirationDefaultsKey) as? Date
+        let now = nowProvider()
+        if let existing, existing <= now, date > now { return }
+        if existing == date { return }
+        persistence.set(date, forKey: Self.trialExpirationDefaultsKey)
+    }
+
+    func persistedTrialExpiration() -> Date? {
+        persistence.object(forKey: Self.trialExpirationDefaultsKey) as? Date
+    }
+
+    private func storeKitTrialExpiration() async -> Date? {
+        var latest = persistedTrialExpiration()
+
+        func consider(_ date: Date?) {
+            guard let date else { return }
+            if latest == nil || date > latest! { latest = date }
+        }
+
+        for product in products {
+            guard case .storeKit(let storeProduct) = product.backing,
+                  let subscription = storeProduct.subscription else { continue }
+            guard let statuses = try? await subscription.status else { continue }
+            for status in statuses {
+                guard case .verified(let transaction) = status.transaction else { continue }
+                if transaction.offerType == .introductory || status.state == .expired {
+                    consider(transaction.expirationDate)
+                }
+            }
+        }
+
+        if latest == nil {
+            for await result in Transaction.all {
+                guard case .verified(let transaction) = result else { continue }
+                guard RevenueCatConstants.subscriptionProductIDs.contains(transaction.productID) else { continue }
+                if transaction.offerType == .introductory {
+                    consider(transaction.expirationDate)
+                }
+            }
+        }
+
+        if let latest { persistTrialExpiration(latest) }
+        return latest
     }
 
     private func refreshStoreKitTrialEligibility() async {

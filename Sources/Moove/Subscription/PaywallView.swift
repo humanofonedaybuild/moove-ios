@@ -2,6 +2,8 @@ import SwiftUI
 import MooveKit
 
 struct PaywallView: View {
+    var mode: PaywallMode = .optional
+
     @Environment(SubscriptionManager.self)
     private var subscriptionManager
 
@@ -16,8 +18,8 @@ struct PaywallView: View {
         ScrollView {
             VStack(spacing: MooveSpacing.xxl) {
                 headerSection
+                proofPointsSection
                 pricingSection
-                featuresSection
                 bottomSection
             }
             .padding(.horizontal, MooveSpacing.xxl)
@@ -28,17 +30,17 @@ struct PaywallView: View {
         .scrollDismissesKeyboard(.interactively)
         .mooveScreenBackground()
         .task {
-            // The paywall owns its product load so it never depends on the
-            // AppDelegate's background fetch having completed (MOO-112: the
-            // onboarding→paywall path surfaced "pricing unavailable" when the
-            // background fetch raced the user). Fetch is idempotent and
-            // cheap; refresh the entitlement/trial state afterwards.
-            if subscriptionManager.products.isEmpty && !subscriptionManager.isLoadingProducts {
-                await subscriptionManager.fetchProducts()
-            }
+            // Products must be loaded for the paywall to show pricing and for
+            // the purchase button to be actionable. `refreshSubscriptionState`
+            // alone only reads entitlements — it does not fetch products — so
+            // fetching here guarantees the paywall is never stuck on
+            // "Pricing unavailable" with a disabled, unresponsive CTA (MOO-112).
+            await subscriptionManager.fetchProducts()
             await subscriptionManager.refreshSubscriptionState()
         }
     }
+
+    // MARK: - Header (MOO-113 copy: validity/permanence)
 
     private var headerSection: some View {
         VStack(spacing: 0) {
@@ -49,23 +51,42 @@ struct PaywallView: View {
                 .background(Circle().fill(Color.terracotta.opacity(0.12)))
                 .overlay(Circle().stroke(Color.hairline, lineWidth: 1))
 
-            Text("Moove Premium")
+            Text(mode == .required ? "Subscribe to continue" : "Moove Premium")
                 .mooveEyebrow()
                 .padding(.top, MooveSpacing.xxl)
 
             VStack(spacing: 0) {
-                Text("Wake up to your")
-                    .font(MooveFont.title())
-                    .foregroundStyle(Color.espresso)
+                if mode == .required {
+                    Text("To continue using Moove,")
+                        .font(MooveFont.title())
+                        .foregroundStyle(Color.espresso)
 
-                Text("full potential")
-                    .font(MooveFont.displayItalic(size: 38))
-                    .foregroundStyle(Color.terracotta)
+                    Text("please subscribe.")
+                        .font(MooveFont.displayItalic(size: 34))
+                        .foregroundStyle(Color.terracotta)
+                } else {
+                    Text("Everything.")
+                        .font(MooveFont.title())
+                        .foregroundStyle(Color.espresso)
+
+                    Text("Forever.")
+                        .font(MooveFont.displayItalic(size: 38))
+                        .foregroundStyle(Color.terracotta)
+                }
             }
             .multilineTextAlignment(.center)
             .minimumScaleFactor(0.75)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.top, MooveSpacing.md)
+
+            Text(mode == .required
+                 ? "Your free trial has ended. Choose a plan to keep your alarms working."
+                 : "Start a 7-day free trial to unlock all of Moove. Subscribe to keep everything — permanently.")
+                .font(MooveFont.subheadline())
+                .foregroundStyle(Color.taupe)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, MooveSpacing.lg)
         }
         .background(softHeroGradient, alignment: .center)
     }
@@ -80,6 +101,41 @@ struct PaywallView: View {
         .frame(width: 320, height: 320)
         .allowsHitTesting(false)
     }
+
+    // MARK: - Proof points (MOO-113: "Keep forever" lead-in + 4 items)
+
+    private var proofPointsSection: some View {
+        VStack(alignment: .leading, spacing: MooveSpacing.lg) {
+            Text("Keep forever")
+                .mooveEyebrow()
+
+            VStack(spacing: 0) {
+                ForEach(Array(proofPoints.enumerated()), id: \.offset) { index, point in
+                    HStack(spacing: MooveSpacing.lg) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(Color.terracotta)
+
+                        Text(point)
+                            .font(MooveFont.subheadline(weight: .medium))
+                            .foregroundStyle(Color.espresso)
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, MooveSpacing.md)
+
+                    if index < proofPoints.count - 1 {
+                        Rectangle()
+                            .fill(Color.hairline)
+                            .frame(height: 1)
+                    }
+                }
+            }
+        }
+        .mooveCard(padding: MooveSpacing.lg)
+    }
+
+    // MARK: - Pricing (MOO-112: real StoreKit 2 product pricing)
 
     private var pricingSection: some View {
         VStack(spacing: MooveSpacing.md) {
@@ -147,41 +203,7 @@ struct PaywallView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var featuresSection: some View {
-        VStack(spacing: 0) {
-            ForEach(Array(features.enumerated()), id: \.offset) { index, feature in
-                HStack(spacing: MooveSpacing.lg) {
-                    Image(systemName: feature.icon)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Color.terracotta)
-                        .frame(width: 36, height: 36)
-                        .background(Circle().fill(Color.terracotta.opacity(0.12)))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(feature.title)
-                            .font(MooveFont.subheadline(weight: .medium))
-                            .foregroundStyle(Color.espresso)
-
-                        Text(feature.description)
-                            .font(MooveFont.caption())
-                            .foregroundStyle(Color.taupe)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    Spacer(minLength: 0)
-                }
-                .padding(.vertical, MooveSpacing.md)
-
-                if index < features.count - 1 {
-                    Rectangle()
-                        .fill(Color.hairline)
-                        .frame(height: 1)
-                        .padding(.leading, 52)
-                }
-            }
-        }
-        .mooveCard(padding: MooveSpacing.lg)
-    }
+    // MARK: - Bottom (CTA + trial note + secondary + restore + legal)
 
     private var bottomSection: some View {
         VStack(spacing: MooveSpacing.md) {
@@ -212,27 +234,46 @@ struct PaywallView: View {
                 .disabled(isPurchasing || subscriptionManager.isLoadingProducts)
                 .accessibilityIdentifier("paywall.startTrialButton")
 
+                trialNote
+            }
+
+            if mode == .optional {
                 Button {
-                    Task { await subscriptionManager.restorePurchases() }
+                    dismiss()
                 } label: {
-                    Text("Restore Purchases")
+                    Text("Maybe later")
+                        .font(MooveFont.subheadline())
+                        .foregroundStyle(Color.taupe)
+                        .frame(width: 200, height: 44)
                 }
-                .mooveButton(.secondary)
+                .accessibilityIdentifier("paywall.maybeLaterButton")
             }
 
             Button {
-                dismiss()
+                Task { await subscriptionManager.restorePurchases() }
             } label: {
-                Text("Maybe Later")
-                    .font(MooveFont.subheadline())
-                    .foregroundStyle(Color.taupe)
-                    .frame(width: 200, height: 44)
+                Text("Restore Purchases")
             }
-            .accessibilityIdentifier("paywall.maybeLaterButton")
+            .mooveButton(.secondary)
 
             legalLinks
         }
         .padding(.top, MooveSpacing.md)
+    }
+
+    /// Trial transparency note (MOO-113): small print directly under the CTA —
+    /// "Free for 7 days. Then [price] / [period]. Cancel anytime." Only shown
+    /// while the introductory offer is still available and a plan is selected.
+    private var trialNote: some View {
+        Group {
+            if subscriptionManager.isEligibleForTrial, let product = selectedProduct {
+                Text("Free for 7 days. Then \(product.localizedPriceString) / \(selectedPeriod). Cancel anytime.")
+            }
+        }
+        .font(MooveFont.caption())
+        .foregroundStyle(Color.taupe.opacity(0.8))
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
     }
 
     private var legalLinks: some View {
@@ -263,6 +304,13 @@ struct PaywallView: View {
         }
     }
 
+    private var selectedPeriod: String {
+        switch selectedPlan {
+        case .monthly: "month"
+        case .yearly: "year"
+        }
+    }
+
     private func purchase() {
         purchaseError = nil
         guard let product = selectedProduct else { return }
@@ -276,6 +324,7 @@ struct PaywallView: View {
                 }
             } catch SubscriptionError.userCancelled, SubscriptionError.pending {
                 isPurchasing = false
+                if mode == .required { return }
             } catch {
                 purchaseError = error.localizedDescription
                 isPurchasing = false
@@ -289,34 +338,19 @@ private enum Plan {
     case yearly
 }
 
-private struct Feature: Identifiable {
-    let id = UUID()
-    let icon: String
-    let title: String
-    let description: String
+enum PaywallMode {
+    case optional
+    case required
 }
 
-private let features: [Feature] = [
-    Feature(
-        icon: "alarm.fill",
-        title: "Unlimited Alarms",
-        description: "Set as many alarms as you need, each with custom step goals."
-    ),
-    Feature(
-        icon: "music.note.list",
-        title: "Full Sound Library",
-        description: "Access all premium alarm sounds and import your own."
-    ),
-    Feature(
-        icon: "applewatch",
-        title: "Apple Watch Companion",
-        description: "Track steps from your wrist and control alarms hands-free."
-    ),
-    Feature(
-        icon: "sparkles",
-        title: "No Ads, Ever",
-        description: "A clean, focused experience. No interruptions."
-    ),
+/// Proof points (MOO-113): the four features are identical during the free
+/// trial, so the copy centers on permanence — "Keep forever" — rather than
+/// listing them as premium-only differentiators.
+private let proofPoints: [String] = [
+    "Unlimited alarms",
+    "Full sound library",
+    "Watch companion",
+    "No ads"
 ]
 
 private let monthlyFeatures: [String] = [

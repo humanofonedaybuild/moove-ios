@@ -28,6 +28,11 @@ public enum Constants {
     /// 7-day trial duration for subscriptions
     public static let subscriptionTrialDuration: TimeInterval = 7 * 24 * 3600
 
+    /// Soft warning window after the StoreKit intro trial expires and the user
+    /// has not converted. Alarms keep working; a banner prompts subscribe.
+    /// After this window the hard paywall locks scheduling and alarm-fire.
+    public static let postTrialGracePeriod: TimeInterval = 24 * 3600
+
     public enum Links {
         public static let termsOfService = URL(string: "https://moovealarm.com/terms")!
         public static let privacyPolicy = URL(string: "https://moovealarm.com/privacy")!

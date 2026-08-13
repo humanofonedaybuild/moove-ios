@@ -41,6 +41,7 @@ final class SubscriptionManagerFallbackTests: XCTestCase {
     /// Builds a fresh manager already configured against the test session.
     private func makeManager() -> SubscriptionManager {
         let manager = SubscriptionManager()
+        manager.persistence = UserDefaults(suiteName: "moove.tests.sub.\(UUID().uuidString)") ?? .standard
         manager.observeTransactionUpdates()
         return manager
     }
@@ -141,5 +142,38 @@ final class SubscriptionManagerFallbackTests: XCTestCase {
         XCTAssertFalse(manager.isPremium)
         XCTAssertTrue(manager.shouldShowPaywall, "Nothing to restore → paywall stays up")
         XCTAssertEqual(manager.subscriptionState, .inactive)
+    }
+
+    // MARK: - Post-trial enforcement (MOO-124)
+
+    func testExpiredTrialEntersGraceThenHardLock() async throws {
+        let manager = makeManager()
+        await manager.fetchProducts()
+        try XCTSkipIf(manager.monthlyProduct == nil, "StoreKit test session did not vend products")
+        let monthly = try XCTUnwrap(manager.monthlyProduct)
+
+        try await manager.purchase(monthly)
+        XCTAssertEqual(manager.subscriptionState, .trial)
+        XCTAssertTrue(manager.canUseAlarms)
+
+        try session.expireSubscription(productIdentifier: RevenueCatConstants.monthlyProductID)
+        try await waitUntil(timeout: 15) {
+            !manager.isPremium
+        }
+        await manager.refreshSubscriptionState()
+
+        XCTAssertEqual(manager.subscriptionState, .trialGrace, "Expired trial must enter the 24h soft window")
+        XCTAssertTrue(manager.canUseAlarms, "Alarms keep working during grace")
+        XCTAssertTrue(manager.shouldShowGraceBanner)
+        XCTAssertFalse(manager.requiresHardPaywall)
+
+        manager.nowProvider = { Date().addingTimeInterval(Constants.postTrialGracePeriod + 60) }
+        await manager.refreshSubscriptionState()
+
+        XCTAssertEqual(manager.subscriptionState, .expired)
+        XCTAssertFalse(manager.canUseAlarms)
+        XCTAssertTrue(manager.requiresHardPaywall)
+        XCTAssertTrue(manager.shouldShowPaywall)
+        XCTAssertFalse(manager.shouldShowGraceBanner)
     }
 }

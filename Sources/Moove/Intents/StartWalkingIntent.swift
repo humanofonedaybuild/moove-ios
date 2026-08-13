@@ -32,6 +32,10 @@ struct StartWalkingIntent: AppIntent, LiveActivityIntent {
         } else {
             config = AlarmConfig(stepGoal: stepsRequired)
         }
+        if !SubscriptionManager.shared.canUseAlarms {
+            SubscriptionManager.shared.presentRequiredPaywall()
+            return .result(dialog: "Subscribe to continue using Moove.")
+        }
         AppAlarmManager.shared.startMission(for: config)
         return .result(dialog: "Start walking! You need \(config.stepGoal) steps to stop the alarm.")
     }
