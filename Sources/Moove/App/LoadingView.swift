@@ -3,8 +3,8 @@ import SwiftUI
 
 /// Full-screen launch/loading state shown immediately at app start.
 ///
-/// Displays only the Moove monogram and wordmark over the Warm Editorial
-/// cream surface — no navigation chrome, tabs, or status-bar clutter. The view
+/// Displays only the white Moove monogram and tight wordmark over terracotta —
+/// no navigation chrome, tabs, or status-bar clutter. The view
 /// is presented as an overlay above `ContentView` so an alarm mission that fires
 /// on cold-start is never blocked behind the brand moment: `ContentView` is
 /// already live underneath and can present its full-screen mission immediately.
@@ -16,20 +16,20 @@ struct LoadingView: View {
         ZStack {
             Color.terracotta.ignoresSafeArea()
 
-            VStack(spacing: MooveSpacing.md) {
-                Image("MooveMonogram")
+            VStack(spacing: MooveSpacing.xs) {
+                Image("MooveMonogramWhite")
                     .resizable()
-                    .interpolation(.medium)
+                    .interpolation(.high)
                     .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: 168, maxHeight: 168)
+                    .frame(maxWidth: 72, maxHeight: 72)
                     .opacity(monogramOpacity)
                     .scaleEffect(monogramScale)
                     .accessibilityHidden(true)
 
                 Text("Moove")
                     .font(MooveFont.wordmark())
+                    .tracking(-1.6)
                     .foregroundStyle(Color.loadingWordmark)
-                    .tracking(2.4)
                     .opacity(monogramOpacity)
                     .accessibilityHidden(true)
             }
