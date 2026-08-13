@@ -4,10 +4,8 @@ import SwiftUI
 /// Full-screen launch/loading state shown immediately at app start.
 ///
 /// Displays only the white Moove monogram and tight wordmark over terracotta —
-/// no navigation chrome, tabs, or status-bar clutter. The view
-/// is presented as an overlay above `ContentView` so an alarm mission that fires
-/// on cold-start is never blocked behind the brand moment: `ContentView` is
-/// already live underneath and can present its full-screen mission immediately.
+/// no navigation chrome, tabs, or status-bar clutter. `MooveApp` shows this
+/// first, then replaces it with onboarding (first launch) or the main app.
 struct LoadingView: View {
     @State private var monogramOpacity: Double = 0
     @State private var monogramScale: CGFloat = 0.92

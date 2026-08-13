@@ -26,46 +26,58 @@ struct MooveApp: App {
         bar.compactAppearance = appearance
     }
 
-    @State private var hasLoaded = false
-
-    private var holdForCapture: Bool {
-        // Screenshot/UI-test hook: keep the launch loading surface on screen so
-        // capture tooling can grab a clean shot of the Moove monogram state.
-        ProcessInfo.processInfo.arguments.contains("-UITestingHoldLoadingScreen")
-    }
+    @State private var route: LaunchRoute = .loading
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(AppAlarmManager.shared)
-                .environment(StepCounter.shared)
-                .environment(SubscriptionManager.shared)
-                .overlay {
-                    if !hasLoaded {
-                        LoadingView()
-                            .transition(.opacity)
-                    }
+            Group {
+                switch route {
+                case .loading:
+                    LoadingView()
+                case .onboarding, .main:
+                    ContentView()
+                        .environment(AppAlarmManager.shared)
+                        .environment(StepCounter.shared)
+                        .environment(SubscriptionManager.shared)
                 }
-                .task {
-                    let minBrandMoment: Duration = .seconds(1.2)
-                    let start = ContinuousClock.now
-                    await loadApp()
-                    let elapsed = ContinuousClock.now - start
-                    if elapsed < minBrandMoment {
-                        try? await Task.sleep(for: minBrandMoment - elapsed)
-                    }
-                    if !holdForCapture {
-                        withAnimation(.easeInOut(duration: MooveAnimationDuration.standard)) {
-                            hasLoaded = true
-                        }
-                    }
-                }
+            }
+            .animation(.easeInOut(duration: MooveAnimationDuration.standard), value: route)
+            .task {
+                await advanceFromLoading()
+            }
         }
+    }
+
+    private func advanceFromLoading() async {
+        if shouldSkipLoadingForActiveMission {
+            route = .main
+            return
+        }
+
+        let start = ContinuousClock.now
+        await loadApp()
+        let elapsed = ContinuousClock.now - start
+        if elapsed < LaunchSequence.brandMoment {
+            try? await Task.sleep(for: LaunchSequence.brandMoment - elapsed)
+        }
+
+        let next = LaunchSequence.routeAfterLoading(
+            onboardingCompleted: LaunchSequence.isOnboardingCompleted(),
+            holdLoadingScreen: LaunchSequence.shouldHoldLoadingScreen()
+        )
+        withAnimation(.easeInOut(duration: MooveAnimationDuration.standard)) {
+            route = next
+        }
+    }
+
+    private var shouldSkipLoadingForActiveMission: Bool {
+        let manager = AppAlarmManager.shared
+        return manager.activeMission != nil || manager.alarmState == .stopped
     }
 
     private func loadApp() async {
         // App essentials are warmed in AppDelegate.didFinishLaunching. Nothing
         // here should block the launch surface; the timer above only guarantees
-        // the brand moment reads before the overlay fades.
+        // the brand moment reads before routing to onboarding or the main app.
     }
 }

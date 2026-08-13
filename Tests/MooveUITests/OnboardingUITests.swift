@@ -29,6 +29,18 @@ final class OnboardingUITests: XCTestCase {
             app.launchArguments += ["-onboardingStartPage", "\(startPage)"]
         }
         app.launch()
+        _ = app.otherElements["launch.loadingView"].waitForNonExistence(timeout: 5)
+    }
+
+    func testLaunchSequenceShowsOnboardingAfterLoadingOnFirstLaunch() {
+        launchOnboarding()
+
+        XCTAssertFalse(app.otherElements["launch.loadingView"].exists)
+        XCTAssertTrue(
+            app.otherElements["onboarding.page.welcome"].waitForExistence(timeout: 5),
+            "First launch must show onboarding after the loading screen"
+        )
+        assertVisible(continueButton, "Continue on Welcome page")
     }
 
     private func assertVisible(_ element: XCUIElement, _ label: String) {
