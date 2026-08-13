@@ -26,7 +26,8 @@ targets:
       properties:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
-        UILaunchScreen: ""
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.moove.alarmclock.refresh
         LSApplicationCategoryType: public.app-category.lifestyle
         NSHealthShareUsageDescription: "Moove uses step count to track your wake-up mission."
         NSMotionUsageDescription: "Moove uses motion data to detect steps and shakes during your alarm mission."
@@ -39,12 +40,21 @@ targets:
           - audio
           - processing
           - fetch
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        "UISupportedInterfaceOrientations~ipad":
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        CFBundleIconName: AppIcon
         AlarmKitAlarmConfiguration:
           - NSExtension
     sources:
       - path: Sources/Moove
       - path: Resources/Assets.xcassets
-        type: folder
       - path: Resources/Sounds
         type: folder
       - path: Resources/Fonts
@@ -59,14 +69,17 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.moove.alarmclock
         INFOPLIST_OUTPUT_FORMAT: xml
         COM_MOOVE_APP_GROUP: group.com.moove.alarmclock
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: "iPhone Distribution"
+          CODE_SIGN_STYLE: Manual
+          PROVISIONING_PROFILE_SPECIFIER: "Moove App Store"
+          DEVELOPMENT_TEAM: XW22K9BK79
     entitlements:
       path: Resources/Moove.entitlements
       properties:
         com.apple.security.application-groups:
           - group.com.moove.alarmclock
-        com.apple.developer.alarmkit:
-          - alarm-configuration
-        com.apple.developer.in-app-purchases: []
 
   MooveWatch:
     type: application
@@ -95,7 +108,7 @@ targets:
           - "Font+Typography.swift"
           - "Color+Tokens.swift"
       - path: Resources/Assets.xcassets
-        type: folder
+        buildPhase: resources
       - path: Resources/Fonts
         buildPhase: resources
     settings:
@@ -109,13 +122,15 @@ targets:
   MooveKit:
     type: framework
     platform: iOS
+    info:
+      path: Sources/MooveKit/Info.plist
     sources:
       - path: Sources/MooveKit
     settings:
       base:
-        GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.moove.alarmclock.kit
         BUILD_LIBRARY_FOR_DISTRIBUTION: YES
+        INFOPLIST_OUTPUT_FORMAT: xml
 
   MooveTests:
     type: bundle.unit-test
