@@ -139,7 +139,6 @@ xcodebuild archive \
   -authenticationKeyID "$ASC_KEY_ID" \
   -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
   DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-  CODE_SIGN_STYLE="Automatic" \
   | xcpretty && exit ${PIPESTATUS[0]}
 
 if [ ! -d "$ARCHIVE_PATH" ]; then
