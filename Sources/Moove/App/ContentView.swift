@@ -74,7 +74,6 @@ struct AlarmListView: View {
                 }
             }
             .mooveScreenBackground()
-            .navigationTitle("Moove")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { showingAddSheet = true }) {
@@ -97,9 +96,9 @@ struct AlarmListView: View {
                 .renderingMode(.original)
                 .resizable()
                 .scaledToFit()
-                .frame(height: 40)
+                .frame(height: 48)
                 .padding(.leading, 20)
-                .padding(.top, 4)
+                .padding(.top, 6)
                 .accessibilityLabel("Moove")
                 .accessibilityIdentifier("alarmList.monogram")
         }
