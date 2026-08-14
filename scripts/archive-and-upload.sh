@@ -109,7 +109,7 @@ cat > "$EXPORT_OPTIONS" <<EOF
 <plist version="1.0">
 <dict>
   <key>method</key>
-  <string>app-store</string>
+  <string>app-store-connect</string>
   <key>teamID</key>
   <string>${DEVELOPMENT_TEAM}</string>
   <key>uploadBitcode</key>
@@ -119,7 +119,12 @@ cat > "$EXPORT_OPTIONS" <<EOF
   <key>compileBitcode</key>
   <false/>
   <key>signingStyle</key>
-  <string>automatic</string>
+  <string>manual</string>
+  <key>provisioningProfiles</key>
+  <dict>
+    <key>com.moove.alarmclock</key>
+    <string>Moove App Store</string>
+  </dict>
 </dict>
 </plist>
 EOF

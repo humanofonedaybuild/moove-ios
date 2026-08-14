@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>method</key>
-  <string>app-store-connect</string>
+  <string>app-store</string>
   <key>teamID</key>
   <string>XW22K9BK79</string>
   <key>uploadBitcode</key>
@@ -13,11 +13,6 @@
   <key>compileBitcode</key>
   <false/>
   <key>signingStyle</key>
-  <string>manual</string>
-  <key>provisioningProfiles</key>
-  <dict>
-    <key>com.moove.alarmclock</key>
-    <string>Moove App Store</string>
-  </dict>
+  <string>automatic</string>
 </dict>
 </plist>
