@@ -94,35 +94,47 @@ struct OnboardingView: View {
         }
     }
 
+    @MainActor
     private func requestPermissionsAndComplete() {
+        guard !isRequestingPermissions else { return }
         isRequestingPermissions = true
-        let group = DispatchGroup()
 
-        group.enter()
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in
-            group.leave()
-        }
+        Task { @MainActor in
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    _ = try? await UNUserNotificationCenter.current()
+                        .requestAuthorization(options: [.alert, .sound, .badge])
+                }
 
-        group.enter()
-        if CMPedometer.isStepCountingAvailable() {
-            let pedometer = CMPedometer()
-            pedometer.queryPedometerData(from: Date(), to: Date()) { _, _ in
-                group.leave()
+                group.addTask {
+                    guard CMPedometer.isStepCountingAvailable() else { return }
+                    let pedometer = CMPedometer()
+                    let start = Date().addingTimeInterval(-120)
+                    await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                        let once = ContinuationOnce(continuation)
+                        pedometer.queryPedometerData(from: start, to: Date()) { _, _ in
+                            _ = pedometer
+                            once.resume()
+                        }
+                        Task {
+                            try? await Task.sleep(for: .seconds(3))
+                            once.resume()
+                        }
+                    }
+                }
+
+                group.addTask {
+                    _ = await AppAlarmManager.shared.requestAuthorizationIfNeeded()
+                }
+
+                group.addTask {
+                    try? await Task.sleep(for: .seconds(5))
+                }
+
+                _ = await group.next()
+                group.cancelAll()
             }
-        } else {
-            group.leave()
-        }
 
-        // AlarmKit authorization is required for `schedule()` to succeed at
-        // all — without this prompt every alarm silently fails to save
-        // (QA MOO-87 P0).
-        group.enter()
-        Task {
-            _ = await AppAlarmManager.shared.requestAuthorizationIfNeeded()
-            group.leave()
-        }
-
-        group.notify(queue: .main) { [self] in
             isRequestingPermissions = false
             completeOnboarding()
         }
@@ -241,7 +253,7 @@ private struct PermissionsPage: View {
             Text("One more thing")
                 .mooveEyebrow()
 
-            Text("Let Moove\nwake you up")
+            Text("Walk to\nwake up")
                 .font(MooveFont.title())
                 .foregroundStyle(Color.espresso)
                 .multilineTextAlignment(.center)
@@ -327,5 +339,23 @@ private struct PermissionCard: View {
         }
         .padding(MooveSpacing.xl)
         .mooveCard(padding: 0)
+    }
+}
+
+private final class ContinuationOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var resumed = false
+    private let continuation: CheckedContinuation<Void, Never>
+
+    init(_ continuation: CheckedContinuation<Void, Never>) {
+        self.continuation = continuation
+    }
+
+    func resume() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !resumed else { return }
+        resumed = true
+        continuation.resume()
     }
 }

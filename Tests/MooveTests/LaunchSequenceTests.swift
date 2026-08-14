@@ -68,4 +68,25 @@ final class LaunchSequenceTests: XCTestCase {
         )
         XCTAssertFalse(LaunchSequence.shouldHoldLoadingScreen(arguments: []))
     }
+
+    func testInitialRouteOnboarding() {
+        XCTAssertEqual(
+            LaunchSequence.initialRoute(onboardingCompleted: false),
+            .onboarding
+        )
+    }
+
+    func testInitialRouteMain() {
+        XCTAssertEqual(
+            LaunchSequence.initialRoute(onboardingCompleted: true),
+            .main
+        )
+    }
+
+    func testInitialRouteSkipsToMainForActiveMission() {
+        XCTAssertEqual(
+            LaunchSequence.initialRoute(onboardingCompleted: false, hasActiveMission: true),
+            .main
+        )
+    }
 }

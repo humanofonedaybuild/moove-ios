@@ -62,45 +62,64 @@ struct SettingsView: View {
             if !subscriptionManager.isPremium {
                 VStack(alignment: .leading, spacing: MooveSpacing.md) {
                     VStack(spacing: 0) {
-                        Text("Everything.")
+                        Text("All of Moove.")
                             .font(MooveFont.title())
                             .foregroundStyle(Color.espresso)
-                        Text("Forever.")
+                        Text("Free for 7 days.")
                             .font(MooveFont.displayItalic(size: 34))
                             .foregroundStyle(Color.terracotta)
                     }
 
-                    Text("Start a 7-day free trial to unlock all of Moove. Subscribe to keep everything — permanently.")
+                    Text("Your trial includes every feature. Subscribe to keep it all — for as long as you're subscribed.")
                         .font(MooveFont.caption())
                         .foregroundStyle(Color.taupe)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
 
                     VStack(alignment: .leading, spacing: MooveSpacing.md) {
-                        Text("Keep forever")
+                        Text("How it works")
                             .mooveEyebrow()
 
                         VStack(spacing: 0) {
-                            ForEach(Array(settingsPremiumProofPoints.enumerated()), id: \.offset) { index, point in
-                                HStack(spacing: MooveSpacing.lg) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 18, weight: .medium))
-                                        .foregroundStyle(Color.terracotta)
+                            HStack(spacing: MooveSpacing.lg) {
+                                Image(systemName: "gift.fill")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundStyle(Color.terracotta)
 
-                                    Text(point)
-                                        .font(MooveFont.subheadline(weight: .medium))
+                                VStack(alignment: .leading, spacing: MooveSpacing.xs) {
+                                    Text("Days 1–7")
+                                        .font(MooveFont.subheadline(weight: .semibold))
                                         .foregroundStyle(Color.espresso)
-
-                                    Spacer(minLength: 0)
+                                    Text("Everything free. Every feature included.")
+                                        .font(MooveFont.subheadline())
+                                        .foregroundStyle(Color.taupe)
                                 }
-                                .padding(.vertical, MooveSpacing.md)
 
-                                if index < settingsPremiumProofPoints.count - 1 {
-                                    Rectangle()
-                                        .fill(Color.hairline)
-                                        .frame(height: 1)
-                                }
+                                Spacer(minLength: 0)
                             }
+                            .padding(.vertical, MooveSpacing.md)
+
+                            Rectangle()
+                                .fill(Color.hairline)
+                                .frame(height: 1)
+
+                            HStack(spacing: MooveSpacing.lg) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.system(size: 18, weight: .medium))
+                                    .foregroundStyle(Color.terracotta)
+
+                                VStack(alignment: .leading, spacing: MooveSpacing.xs) {
+                                    Text("Day 8+")
+                                        .font(MooveFont.subheadline(weight: .semibold))
+                                        .foregroundStyle(Color.espresso)
+                                    Text("Keep everything while subscribed. Cancel anytime.")
+                                        .font(MooveFont.subheadline())
+                                        .foregroundStyle(Color.taupe)
+                                }
+
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.vertical, MooveSpacing.md)
                         }
                     }
 
@@ -387,13 +406,6 @@ private struct PermissionRow: View {
         .mooveListRow()
     }
 }
-
-private let settingsPremiumProofPoints: [String] = [
-    "Unlimited alarms",
-    "Full sound library",
-    "Watch companion",
-    "No ads"
-]
 
 /// StoreKit 2 pricing for Settings → Moove Premium (MOO-123).
 /// Same pattern as PaywallView: fetch, loading, prices, retry.

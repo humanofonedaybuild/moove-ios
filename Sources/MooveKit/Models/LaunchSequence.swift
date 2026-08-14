@@ -26,6 +26,14 @@ public enum LaunchSequence {
         defaults.set(completed, forKey: onboardingCompletedKey)
     }
 
+    public static func initialRoute(
+        onboardingCompleted: Bool,
+        hasActiveMission: Bool = false
+    ) -> LaunchRoute {
+        if hasActiveMission { return .main }
+        return onboardingCompleted ? .main : .onboarding
+    }
+
     public static func routeAfterLoading(
         onboardingCompleted: Bool,
         holdLoadingScreen: Bool = false

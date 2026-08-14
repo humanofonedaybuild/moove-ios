@@ -5,15 +5,15 @@ public struct PlanCard: View {
     let title: String
     let price: String
     let trialDuration: String
-    let features: [String]
+    let savingsNote: String?
     let isSelected: Bool
     let action: () -> Void
 
-    public init(title: String, price: String, trialDuration: String, features: [String], isSelected: Bool, action: @escaping () -> Void) {
+    public init(title: String, price: String, trialDuration: String, savingsNote: String? = nil, isSelected: Bool, action: @escaping () -> Void) {
         self.title = title
         self.price = price
         self.trialDuration = trialDuration
-        self.features = features
+        self.savingsNote = savingsNote
         self.isSelected = isSelected
         self.action = action
     }
@@ -33,18 +33,11 @@ public struct PlanCard: View {
                     Text(trialDuration)
                         .font(MooveFont.subheadline())
                         .foregroundStyle(Color.taupe)
-                }
 
-                VStack(alignment: .leading, spacing: MooveSpacing.sm) {
-                    ForEach(features, id: \.self) { feature in
-                        HStack(spacing: MooveSpacing.sm) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(MooveFont.caption())
-                                .foregroundStyle(.brandSuccess)
-                            Text(feature)
-                                .font(MooveFont.subheadline())
-                                .foregroundStyle(Color.taupe)
-                        }
+                    if let savingsNote {
+                        Text(savingsNote)
+                            .font(MooveFont.caption())
+                            .foregroundStyle(Color.terracotta)
                     }
                 }
 

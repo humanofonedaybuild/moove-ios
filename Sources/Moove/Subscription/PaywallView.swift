@@ -18,7 +18,7 @@ struct PaywallView: View {
         ScrollView {
             VStack(spacing: MooveSpacing.xxl) {
                 headerSection
-                proofPointsSection
+                howItWorksSection
                 pricingSection
                 bottomSection
             }
@@ -40,7 +40,7 @@ struct PaywallView: View {
         }
     }
 
-    // MARK: - Header (MOO-113 copy: validity/permanence)
+    // MARK: - Header (MOO-138 copy: validity-first, no feature lists)
 
     private var headerSection: some View {
         VStack(spacing: 0) {
@@ -65,11 +65,11 @@ struct PaywallView: View {
                         .font(MooveFont.displayItalic(size: 34))
                         .foregroundStyle(Color.terracotta)
                 } else {
-                    Text("Everything.")
+                    Text("All of Moove.")
                         .font(MooveFont.title())
                         .foregroundStyle(Color.espresso)
 
-                    Text("Forever.")
+                    Text("Free for 7 days.")
                         .font(MooveFont.displayItalic(size: 38))
                         .foregroundStyle(Color.terracotta)
                 }
@@ -81,7 +81,7 @@ struct PaywallView: View {
 
             Text(mode == .required
                  ? "Your free trial has ended. Choose a plan to keep your alarms working."
-                 : "Start a 7-day free trial to unlock all of Moove. Subscribe to keep everything — permanently.")
+                 : "Your trial includes every feature. Subscribe to keep it all — for as long as you're subscribed.")
                 .font(MooveFont.subheadline())
                 .foregroundStyle(Color.taupe)
                 .multilineTextAlignment(.center)
@@ -102,34 +102,53 @@ struct PaywallView: View {
         .allowsHitTesting(false)
     }
 
-    // MARK: - Proof points (MOO-113: "Keep forever" lead-in + 4 items)
+    // MARK: - How it works (MOO-138: validity timeline replaces feature list)
 
-    private var proofPointsSection: some View {
+    private var howItWorksSection: some View {
         VStack(alignment: .leading, spacing: MooveSpacing.lg) {
-            Text("Keep forever")
+            Text("How it works")
                 .mooveEyebrow()
 
             VStack(spacing: 0) {
-                ForEach(Array(proofPoints.enumerated()), id: \.offset) { index, point in
-                    HStack(spacing: MooveSpacing.lg) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(Color.terracotta)
+                HStack(spacing: MooveSpacing.lg) {
+                    Image(systemName: "gift.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(Color.terracotta)
 
-                        Text(point)
-                            .font(MooveFont.subheadline(weight: .medium))
+                    VStack(alignment: .leading, spacing: MooveSpacing.xs) {
+                        Text("Days 1–7")
+                            .font(MooveFont.subheadline(weight: .semibold))
                             .foregroundStyle(Color.espresso)
-
-                        Spacer(minLength: 0)
+                        Text("Everything free. Every feature included.")
+                            .font(MooveFont.subheadline())
+                            .foregroundStyle(Color.taupe)
                     }
-                    .padding(.vertical, MooveSpacing.md)
 
-                    if index < proofPoints.count - 1 {
-                        Rectangle()
-                            .fill(Color.hairline)
-                            .frame(height: 1)
-                    }
+                    Spacer(minLength: 0)
                 }
+                .padding(.vertical, MooveSpacing.md)
+
+                Rectangle()
+                    .fill(Color.hairline)
+                    .frame(height: 1)
+
+                HStack(spacing: MooveSpacing.lg) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(Color.terracotta)
+
+                    VStack(alignment: .leading, spacing: MooveSpacing.xs) {
+                        Text("Day 8+")
+                            .font(MooveFont.subheadline(weight: .semibold))
+                            .foregroundStyle(Color.espresso)
+                        Text("Keep everything while subscribed. Cancel anytime.")
+                            .font(MooveFont.subheadline())
+                            .foregroundStyle(Color.taupe)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, MooveSpacing.md)
             }
         }
         .mooveCard(padding: MooveSpacing.lg)
@@ -182,7 +201,6 @@ struct PaywallView: View {
                         title: "Monthly",
                         price: "\(monthly.localizedPriceString) / month",
                         trialDuration: "7-day free trial",
-                        features: monthlyFeatures,
                         isSelected: selectedPlan == .monthly,
                         action: { selectedPlan = .monthly }
                     )
@@ -193,7 +211,7 @@ struct PaywallView: View {
                         title: "Yearly · Best Value",
                         price: "\(yearly.localizedPriceString) / year",
                         trialDuration: "7-day free trial",
-                        features: yearlyFeatures,
+                        savingsNote: "Save over 30% vs monthly",
                         isSelected: selectedPlan == .yearly,
                         action: { selectedPlan = .yearly }
                     )
@@ -343,24 +361,4 @@ enum PaywallMode {
     case required
 }
 
-/// Proof points (MOO-113): the four features are identical during the free
-/// trial, so the copy centers on permanence — "Keep forever" — rather than
-/// listing them as premium-only differentiators.
-private let proofPoints: [String] = [
-    "Unlimited alarms",
-    "Full sound library",
-    "Watch companion",
-    "No ads"
-]
 
-private let monthlyFeatures: [String] = [
-    "Unlimited alarms",
-    "Full sound library",
-    "Apple Watch companion"
-]
-
-private let yearlyFeatures: [String] = [
-    "Everything in Monthly",
-    "Save over 30% vs monthly",
-    "Priority support"
-]
