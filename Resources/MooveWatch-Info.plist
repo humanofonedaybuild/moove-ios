@@ -30,13 +30,13 @@
 		<string>CormorantGaramond-Italic-Variable.ttf</string>
 		<string>Manrope-Variable.ttf</string>
 	</array>
+	<key>WKApplication</key>
+	<true/>
 	<key>WKBackgroundModes</key>
 	<array>
 		<string>workout-processing</string>
 	</array>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.moove.alarmclock</string>
-	<key>WKApplication</key>
-	<true/>
 </dict>
 </plist>
