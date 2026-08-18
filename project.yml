@@ -56,8 +56,6 @@ targets:
         CFBundleVersion: "8"
         ITSAppUsesNonExemptEncryption: false
         "NSAlarmKitUsageDescription": "Moove schedules alarms to wake you up. You must walk to dismiss them."
-        AlarmKitAlarmConfiguration:
-          - NSExtension
     sources:
       - path: Sources/Moove
       - path: Resources/Assets.xcassets

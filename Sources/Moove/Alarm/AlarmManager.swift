@@ -138,9 +138,13 @@ final class AppAlarmManager {
             SubscriptionManager.shared.presentRequiredPaywall()
             return
         }
+        if let active = activeMission, active.id == config.id, alarmState == .missionActive {
+            return
+        }
         activeMission = config
         alarmState = .missionActive
         missionStartTime = Date()
+        try? AlarmManager.shared.stop(id: config.id)
         StepCounter.shared.beginCounting(downFrom: config.stepGoal)
         AudioManager.shared.playAlarmSound(named: config.soundName)
         WatchSessionManager.shared.sendMissionStart(stepsRequired: config.stepGoal)
@@ -148,6 +152,9 @@ final class AppAlarmManager {
     }
 
     func completeMission() {
+        if let config = activeMission {
+            try? AlarmManager.shared.stop(id: config.id)
+        }
         alarmState = .stopped
         AlarmMissionActivity.shared.endActivity()
         StepCounter.shared.stopCounting()

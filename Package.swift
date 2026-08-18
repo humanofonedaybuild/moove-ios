@@ -4,8 +4,8 @@ import PackageDescription
 let package = Package(
     name: "Moove",
     platforms: [
-        .iOS(.v18),
-        .watchOS(.v11),
+        .iOS(.v26),
+        .watchOS(.v12),
     ],
     products: [
         .library(
