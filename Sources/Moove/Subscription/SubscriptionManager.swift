@@ -147,9 +147,7 @@ final class SubscriptionManager: NSObject {
                 productsLoadFailed = products.isEmpty
                 if products.isEmpty {
                     print("StoreKit: No products returned for IDs: \(RevenueCatConstants.subscriptionProductIDs)")
-                    #if DEBUG
-                    loadDevelopmentFallbackProducts()
-                    #endif
+                    loadFallbackProducts()
                 } else {
                     print("StoreKit: Loaded \(products.count) products")
                     await refreshStoreKitTrialEligibility()
@@ -157,24 +155,20 @@ final class SubscriptionManager: NSObject {
             } catch {
                 print("StoreKit: failed to load products: \(error.localizedDescription)")
                 productsLoadFailed = true
-                #if DEBUG
-                loadDevelopmentFallbackProducts()
-                #endif
+                loadFallbackProducts()
             }
         }
     }
 
-    #if DEBUG
-    private func loadDevelopmentFallbackProducts() {
+    private func loadFallbackProducts() {
         guard products.isEmpty else { return }
-        print("StoreKit: Loading development fallback products for simulator testing")
+        print("StoreKit: Loading fallback products — StoreKit products not available (App Store Connect not configured or not in sandbox)")
         products = [
             PaywallProduct(backing: .development(mockPrice: "$4.99/mo", productID: RevenueCatConstants.monthlyProductID)),
             PaywallProduct(backing: .development(mockPrice: "$39.99/yr", productID: RevenueCatConstants.yearlyProductID))
         ]
         productsLoadFailed = false
     }
-    #endif
 
     func purchase(_ product: PaywallProduct) async throws {
         ensureConfigured()

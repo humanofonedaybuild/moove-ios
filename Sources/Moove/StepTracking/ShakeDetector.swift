@@ -15,7 +15,7 @@ final class ShakeDetector {
     func startDetecting() {
         guard motionManager.isAccelerometerAvailable, !isDetecting else { return }
         isDetecting = true
-        motionManager.accelerometerUpdateInterval = Constants.StepTracking.pedalometerUpdateInterval
+        motionManager.accelerometerUpdateInterval = Constants.StepTracking.pedometerUpdateInterval
         motionManager.startAccelerometerUpdates(to: .main) { [weak self] data, error in
             guard let data, error == nil else { return }
             self?.processAccelerometerData(data)

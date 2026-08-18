@@ -11,6 +11,8 @@ struct ContentView: View {
     @Environment(SubscriptionManager.self)
     private var subscriptionManager
 
+    @State private var activationStamp = 0
+
     var body: some View {
         Group {
             if hasCompletedOnboarding {
@@ -25,6 +27,9 @@ struct ContentView: View {
             if completed && !subscriptionManager.isPremium {
                 subscriptionManager.shouldShowPaywall = true
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            activationStamp += 1
         }
     }
 
@@ -43,7 +48,8 @@ struct ContentView: View {
         .tint(.espresso)
         .fullScreenCover(isPresented: .init(
             get: {
-                alarmManager.activeMission != nil
+                _ = activationStamp
+                return alarmManager.activeMission != nil
                     || alarmManager.alarmState == .firing
                     || alarmManager.alarmState == .missionActive
                     || alarmManager.alarmState == .stopped

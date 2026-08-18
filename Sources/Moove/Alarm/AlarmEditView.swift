@@ -12,6 +12,7 @@ struct AlarmEditView: View {
     @State private var soundName: String
     @State private var snoozeEnabled: Bool
     @State private var showingSoundPicker = false
+    @State private var showingDeleteConfirmation = false
 
     let editingConfig: AlarmConfig?
     var isEditing: Bool { editingConfig != nil }
@@ -37,6 +38,10 @@ struct AlarmEditView: View {
                     stepsSection
                     soundSection
                     snoozeSection
+
+                    if isEditing {
+                        deleteSection
+                    }
                 }
                 .padding(MooveSpacing.xl)
             }
@@ -56,6 +61,12 @@ struct AlarmEditView: View {
             }
             .sheet(isPresented: $showingSoundPicker) {
                 SoundPickerView(selectedSound: $soundName)
+            }
+            .alert("Delete Alarm", isPresented: $showingDeleteConfirmation) {
+                Button("Delete", role: .destructive) { deleteAlarm() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This alarm will be permanently deleted.")
             }
         }
         .environment(\.colorScheme, .light)
@@ -189,6 +200,24 @@ struct AlarmEditView: View {
         .mooveCard(padding: MooveSpacing.xl)
     }
 
+    private var deleteSection: some View {
+        VStack(spacing: 0) {
+            Button(role: .destructive) {
+                showingDeleteConfirmation = true
+            } label: {
+                HStack {
+                    Image(systemName: "trash")
+                    Text("Delete Alarm")
+                }
+                .font(MooveFont.body(weight: .semibold))
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, MooveSpacing.lg)
+            }
+        }
+        .mooveCard(padding: MooveSpacing.xl)
+    }
+
     private func sectionHeader(_ text: String) -> some View {
         HStack {
             Text(text)
@@ -235,6 +264,12 @@ struct AlarmEditView: View {
             alarmManager.addAlarm(config)
         }
 
+        dismiss()
+    }
+
+    private func deleteAlarm() {
+        guard let config = editingConfig else { return }
+        alarmManager.deleteAlarm(config)
         dismiss()
     }
 

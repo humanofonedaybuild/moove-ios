@@ -16,14 +16,19 @@ final class StepCounter: NSObject {
 
     private let pedometer = CMPedometer()
     private let motionManager = CMMotionManager()
-    private var shakeMonitor: Task<Void, Never>?
+    private var motionUpdateTask: Task<Void, Never>?
     private var lastShakeTime: Date = .distantPast
+    private var lastStepTime: Date = .distantPast
 
-    /// Pedometer reports cumulative steps since mission start; shakes are
-    /// counted locally. Keep them separate so one source never overwrites
-    /// the other (previously a pedometer event could erase shake progress).
     private var pedometerSteps: Int = 0
     private var shakeSteps: Int = 0
+
+    private var isMissionCompleting = false
+
+    private var magnitudeBuffer: [Double] = []
+    private let magnitudeWindowSize = Constants.StepTracking.stepDetectionWindowSize
+
+    private var lastActivityUpdateTime: Date = .distantPast
 
     private override init() {
         super.init()
@@ -36,14 +41,17 @@ final class StepCounter: NSObject {
         currentStepCount = 0
         stepProgress = 0.0
         isCounting = true
+        isMissionCompleting = false
+        magnitudeBuffer = []
+        lastShakeTime = .distantPast
+        lastStepTime = .distantPast
+        lastActivityUpdateTime = .distantPast
 
         startPedometerUpdates()
-        startShakeMonitoring()
+        startAccelerometerStepDetection()
     }
 
     func requestAuthorization() {
-        // CMPedometer doesn't require explicit authorization call on iOS 26+.
-        // Motion activity permissions are prompted at first use.
     }
 
     func syncFromWatch(_ stepsCompleted: Int) {
@@ -56,8 +64,8 @@ final class StepCounter: NSObject {
         pedometer.stopEventUpdates()
         pedometer.stopUpdates()
         motionManager.stopAccelerometerUpdates()
-        shakeMonitor?.cancel()
-        shakeMonitor = nil
+        motionUpdateTask?.cancel()
+        motionUpdateTask = nil
     }
 
     private func startPedometerUpdates() {
@@ -65,8 +73,8 @@ final class StepCounter: NSObject {
 
         pedometer.startUpdates(from: Date()) { [weak self] data, error in
             guard let self, let data, error == nil else { return }
-            Task { @MainActor in
-                self.handleStepUpdate(data.numberOfSteps.intValue)
+            Task { @MainActor [weak self] in
+                self?.handleStepUpdate(data.numberOfSteps.intValue)
             }
         }
     }
@@ -77,48 +85,65 @@ final class StepCounter: NSObject {
         applyCombinedCount()
     }
 
-    private func startShakeMonitoring() {
-        let manager = motionManager
-        shakeMonitor = Task { [weak self] in
-            while !Task.isCancelled {
-                if manager.isAccelerometerActive {
-                    try? await Task.sleep(for: .milliseconds(100))
-                    continue
-                }
-                manager.startAccelerometerUpdates(to: .main) { data, error in
-                    guard let data, error == nil else { return }
-                    let acceleration = data.acceleration
-                    let magnitude = sqrt(
-                        acceleration.x * acceleration.x +
-                        acceleration.y * acceleration.y +
-                        acceleration.z * acceleration.z
-                    )
-                    if magnitude > Constants.StepTracking.shakeAccelerationThreshold {
-                        Task { @MainActor in
-                            self?.handleShake()
-                        }
-                    }
-                }
-                try? await Task.sleep(for: .milliseconds(500))
+    private func startAccelerometerStepDetection() {
+        guard motionManager.isAccelerometerAvailable else { return }
+        motionManager.accelerometerUpdateInterval = Constants.StepTracking.pedometerUpdateInterval
+
+        motionManager.startAccelerometerUpdates(to: .main) { [weak self] data, error in
+            guard let data, error == nil else { return }
+            let acceleration = data.acceleration
+            let magnitude = sqrt(
+                acceleration.x * acceleration.x +
+                acceleration.y * acceleration.y +
+                acceleration.z * acceleration.z
+            )
+            Task { @MainActor [weak self] in
+                self?.processAccelerometerMagnitude(magnitude)
             }
         }
     }
 
-    private func handleShake() {
+    private func processAccelerometerMagnitude(_ magnitude: Double) {
         guard isCounting else { return }
-        let now = Date()
-        guard now.timeIntervalSince(lastShakeTime) > Constants.StepTracking.shakeMinimumInterval else { return }
-        lastShakeTime = now
-        shakeSteps += 1
-        NotificationCenter.default.post(name: .shakeDetected, object: nil)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        applyCombinedCount()
+
+        magnitudeBuffer.append(magnitude)
+        if magnitudeBuffer.count > magnitudeWindowSize {
+            magnitudeBuffer.removeFirst()
+        }
+        guard magnitudeBuffer.count >= 3 else { return }
+
+        let count = magnitudeBuffer.count
+        let current = magnitudeBuffer[count - 1]
+        let previous = magnitudeBuffer[count - 2]
+        let beforePrevious = magnitudeBuffer[count - 3]
+
+        let isPeak = previous > current && previous > beforePrevious
+
+        let peakThreshold = Constants.StepTracking.stepPeakThreshold
+        let shakeThreshold = Constants.StepTracking.shakeAccelerationThreshold
+
+        if isPeak && previous > peakThreshold {
+            let now = Date()
+            let minDistance = Constants.StepTracking.stepMinPeakDistance
+            guard now.timeIntervalSince(lastStepTime) > minDistance else { return }
+            lastStepTime = now
+            shakeSteps += 1
+            NotificationCenter.default.post(name: .shakeDetected, object: nil)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            applyCombinedCount()
+        } else if magnitude > shakeThreshold {
+            let now = Date()
+            let minInterval = Constants.StepTracking.shakeMinimumInterval
+            guard now.timeIntervalSince(lastShakeTime) > minInterval else { return }
+            lastShakeTime = now
+            shakeSteps += 1
+            NotificationCenter.default.post(name: .shakeDetected, object: nil)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            applyCombinedCount()
+        }
     }
 
     #if DEBUG
-    /// QA hook (MOO-87): simulates physical steps in the simulator, where the
-    /// pedometer and accelerometer produce no movement data. Feeds the same
-    /// monotonic combined-count path as real shake events.
     func debugSimulateSteps(_ count: Int) {
         guard isCounting else { return }
         shakeSteps += count
@@ -126,17 +151,30 @@ final class StepCounter: NSObject {
     }
     #endif
 
-    /// Merges pedometer + shake progress into a single monotonic count so
-    /// neither source can regress the mission counter.
-    private func applyCombinedCount() {        currentStepCount = min(pedometerSteps + shakeSteps, targetStepCount)
+    private func applyCombinedCount() {
+        guard isCounting, !isMissionCompleting else { return }
+
+        currentStepCount = min(pedometerSteps + shakeSteps, targetStepCount)
         stepProgress = Double(currentStepCount) / Double(targetStepCount)
         NotificationCenter.default.post(name: .stepCountUpdated, object: nil)
-        AlarmMissionActivity.shared.updateActivity(stepsRemaining: targetStepCount - currentStepCount)
+
+        throttleLiveActivityUpdate()
 
         if currentStepCount >= targetStepCount {
+            isMissionCompleting = true
             stopCounting()
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            AlarmMissionActivity.shared.updateActivity(stepsRemaining: 0)
             AppAlarmManager.shared.completeMission()
         }
+    }
+
+    private func throttleLiveActivityUpdate() {
+        let now = Date()
+        guard now.timeIntervalSince(lastActivityUpdateTime) >= Constants.StepTracking.liveActivityUpdateInterval else {
+            return
+        }
+        lastActivityUpdateTime = now
+        AlarmMissionActivity.shared.updateActivity(stepsRemaining: targetStepCount - currentStepCount)
     }
 }

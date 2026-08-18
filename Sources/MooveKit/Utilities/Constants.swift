@@ -47,8 +47,12 @@ public enum Constants {
         public static let minimumSteps: Int = 10
         public static let maximumSteps: Int = 100
         public static let stepInterval: Int = 10
-        public static let pedalometerUpdateInterval: TimeInterval = 0.5
-        public static let shakeAccelerationThreshold: Double = 2.5
-        public static let shakeMinimumInterval: TimeInterval = 0.3
+        public static let pedometerUpdateInterval: TimeInterval = 0.02
+        public static let shakeAccelerationThreshold: Double = 1.5
+        public static let shakeMinimumInterval: TimeInterval = 0.4
+        public static let stepPeakThreshold: Double = 1.2
+        public static let stepMinPeakDistance: TimeInterval = 0.35
+        public static let stepDetectionWindowSize: Int = 8
+        public static let liveActivityUpdateInterval: TimeInterval = 0.5
     }
 }

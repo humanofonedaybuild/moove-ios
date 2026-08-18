@@ -38,6 +38,8 @@ final class AppAlarmManager {
         guard let index = alarms.firstIndex(where: { $0.id == config.id }) else { return }
         cancelAlarm(alarms[index])
         alarms[index] = config
+        let refreshed = alarms
+        alarms = refreshed
         Task { await scheduleAlarm(config) }
         saveAlarms()
     }

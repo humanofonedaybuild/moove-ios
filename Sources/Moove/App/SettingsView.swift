@@ -92,53 +92,6 @@ struct SettingsView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: MooveSpacing.md) {
-                Text("How it works")
-                    .mooveEyebrow()
-
-                VStack(spacing: 0) {
-                    HStack(spacing: MooveSpacing.lg) {
-                        Image(systemName: "gift.fill")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(Color.terracotta)
-
-                        VStack(alignment: .leading, spacing: MooveSpacing.xs) {
-                            Text("Days 1–7")
-                                .font(MooveFont.subheadline(weight: .semibold))
-                                .foregroundStyle(Color.espresso)
-                            Text("Everything free. Every feature included.")
-                                .font(MooveFont.subheadline())
-                                .foregroundStyle(Color.taupe)
-                        }
-
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.vertical, MooveSpacing.md)
-
-                    Rectangle()
-                        .fill(Color.hairline)
-                        .frame(height: 1)
-
-                    HStack(spacing: MooveSpacing.lg) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 18, weight: .medium))
-                            .foregroundStyle(Color.terracotta)
-
-                        VStack(alignment: .leading, spacing: MooveSpacing.xs) {
-                            Text("Day 8+")
-                                .font(MooveFont.subheadline(weight: .semibold))
-                                .foregroundStyle(Color.espresso)
-                            Text("Keep everything while subscribed. Cancel anytime.")
-                                .font(MooveFont.subheadline())
-                                .foregroundStyle(Color.taupe)
-                        }
-
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.vertical, MooveSpacing.md)
-                }
-            }
-
             SettingsPaywallPricing()
 
             Button {

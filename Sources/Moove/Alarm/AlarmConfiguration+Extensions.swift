@@ -1,7 +1,19 @@
 import Foundation
 import SwiftUI
 import AlarmKit
+import ActivityKit
 import MooveKit
+
+private let mooveSoundFilenameMap: [String: String] = [
+    "default": "default_alarm",
+    "gentle": "gentle_wake",
+    "breeze": "gentle_wake",
+    "birds": "nature",
+    "waves": "nature",
+    "urgent": "urgent",
+    "digital": "digital",
+    "nature": "nature",
+]
 
 extension AlarmManager.AlarmConfiguration {
     static func make(for config: AlarmConfig) -> AlarmManager.AlarmConfiguration<MooveAlarmMetadata> {
@@ -23,13 +35,23 @@ extension AlarmManager.AlarmConfiguration {
             : .weekly(weekdays)
         let schedule = Alarm.Schedule.relative(.init(time: time, repeats: recurrence))
 
+        let stopButtonText: LocalizedStringResource
+        let stopButtonSystemImage: String
+        if config.snoozeEnabled {
+            stopButtonText = "Snooze"
+            stopButtonSystemImage = "moon.zzz.fill"
+        } else {
+            stopButtonText = "Start Walking"
+            stopButtonSystemImage = "figure.walk"
+        }
+
         let presentation = AlarmPresentation(
             alert: AlarmPresentation.Alert(
                 title: LocalizedStringResource(stringLiteral: config.label),
                 stopButton: AlarmButton(
-                    text: "Walk to Stop",
+                    text: stopButtonText,
                     textColor: .cream,
-                    systemImageName: "figure.walk"
+                    systemImageName: stopButtonSystemImage
                 ),
                 secondaryButton: AlarmButton(
                     text: "Start Walking",
@@ -43,20 +65,31 @@ extension AlarmManager.AlarmConfiguration {
         let attributes = AlarmAttributes<MooveAlarmMetadata>(
             presentation: presentation,
             metadata: metadata,
-            tintColor: Color.brandPrimary
+            tintColor: Color.terracotta
         )
+
+        let alarmSound: AlertConfiguration.AlertSound
+        let soundName = config.soundName
+        if soundName == "default" || soundName.isEmpty {
+            alarmSound = .default
+        } else if let filename = mooveSoundFilenameMap[soundName] {
+            alarmSound = .named(filename)
+        } else {
+            alarmSound = .default
+        }
 
         return AlarmManager.AlarmConfiguration.alarm(
             schedule: schedule,
             attributes: attributes,
             stopIntent: StopAlarmIntent(
-                alarmIdentifier: config.id.uuidString
+                alarmIdentifier: config.id.uuidString,
+                snoozeEnabled: config.snoozeEnabled
             ),
             secondaryIntent: StartWalkingIntent(
                 stepsRequired: config.stepGoal,
                 alarmIdentifier: config.id.uuidString
             ),
-            sound: .default
+            sound: alarmSound
         )
     }
 }
