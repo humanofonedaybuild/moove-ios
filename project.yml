@@ -53,7 +53,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "9"
+        CFBundleVersion: "11"
         ITSAppUsesNonExemptEncryption: false
         "NSAlarmKitUsageDescription": "Moove schedules alarms to wake you up. You must walk to dismiss them."
     sources:
@@ -75,8 +75,8 @@ targets:
         COM_MOOVE_APP_GROUP: group.com.moove.alarmclock
       configs:
         Release:
-          CODE_SIGN_IDENTITY: "iPhone Distribution"
           CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "iPhone Distribution"
           PROVISIONING_PROFILE_SPECIFIER: "Moove App Store"
           DEVELOPMENT_TEAM: XW22K9BK79
     entitlements:
