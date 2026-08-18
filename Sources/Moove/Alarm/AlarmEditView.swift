@@ -58,6 +58,7 @@ struct AlarmEditView: View {
                 SoundPickerView(selectedSound: $soundName)
             }
         }
+        .environment(\.colorScheme, .light)
     }
 
     private var timeSection: some View {

@@ -11,25 +11,41 @@ extension AlarmManager.AlarmConfiguration {
             soundName: config.soundName
         )
 
-        let time = Alarm.Schedule.Relative.Time(hour: config.hour, minute: config.minute)
         let weekdayMapping: [Int: Locale.Weekday] = [
             1: .monday, 2: .tuesday, 3: .wednesday, 4: .thursday,
             5: .friday, 6: .saturday, 7: .sunday
         ]
         let weekdays = config.weekdays.compactMap { weekdayMapping[$0] }
-        let recurrence: Alarm.Schedule.Relative.Recurrence = weekdays.isEmpty
-            ? .never
-            : .weekly(weekdays)
-        let relative = Alarm.Schedule.Relative(time: time, repeats: recurrence)
-        let schedule = Alarm.Schedule.relative(relative)
+
+        let calendar = Calendar.current
+        var dateComponents = DateComponents()
+        dateComponents.hour = config.hour
+        dateComponents.minute = config.minute
+
+        let schedule: AlarmManager.AlarmConfiguration<MooveAlarmMetadata>.Schedule
+        if weekdays.isEmpty {
+            schedule = AlarmManager.AlarmConfiguration<MooveAlarmMetadata>.Schedule.absolute(
+                Alarm.Schedule.Absolute(
+                    date: Calendar.current.date(from: dateComponents) ?? Date(),
+                    repeats: false
+                )
+            )
+        } else {
+            schedule = AlarmManager.AlarmConfiguration<MooveAlarmMetadata>.Schedule.calendar(
+                Alarm.Schedule.Calendar(
+                    dateComponents: dateComponents,
+                    repeats: .weekly(weekdays)
+                )
+            )
+        }
 
         let presentation = AlarmPresentation(
             alert: AlarmPresentation.Alert(
                 title: LocalizedStringResource(stringLiteral: config.label),
                 stopButton: AlarmButton(
-                    text: "Stop",
+                    text: "Walk to Stop",
                     textColor: .cream,
-                    systemImageName: "stop.fill"
+                    systemImageName: "figure.walk"
                 ),
                 secondaryButton: AlarmButton(
                     text: "Start Walking",

@@ -96,7 +96,11 @@ final class AppAlarmManager {
             print("AlarmKit: subscription locked — alarm \(config.id) was not scheduled")
             return
         }
-        _ = await requestAuthorizationIfNeeded()
+        let authorized = await requestAuthorizationIfNeeded()
+        guard authorized else {
+            print("AlarmKit: authorization denied — alarm \(config.id) was not scheduled")
+            return
+        }
 
         let alarmConfig: AlarmManager.AlarmConfiguration<MooveAlarmMetadata> = .make(for: config)
         do {
@@ -133,7 +137,7 @@ final class AppAlarmManager {
 
     func startMission(for config: AlarmConfig) {
         guard SubscriptionManager.shared.canUseAlarms else {
-            cancelAlarm(config)
+            try? AlarmManager.shared.stop(id: config.id)
             AudioManager.shared.stopAlarmSound()
             SubscriptionManager.shared.presentRequiredPaywall()
             return
@@ -141,10 +145,10 @@ final class AppAlarmManager {
         if let active = activeMission, active.id == config.id, alarmState == .missionActive {
             return
         }
+        try? AlarmManager.shared.stop(id: config.id)
         activeMission = config
         alarmState = .missionActive
         missionStartTime = Date()
-        try? AlarmManager.shared.stop(id: config.id)
         StepCounter.shared.beginCounting(downFrom: config.stepGoal)
         AudioManager.shared.playAlarmSound(named: config.soundName)
         WatchSessionManager.shared.sendMissionStart(stepsRequired: config.stepGoal)
@@ -235,16 +239,26 @@ final class AppAlarmManager {
             for await alarms in AlarmManager.shared.alarmUpdates {
                 guard let self else { return }
                 for alarm in alarms {
-                    guard alarm.state == .alerting else { continue }
-                    if let config = self.alarms.first(where: { $0.id == alarm.id }) {
-                        if SubscriptionManager.shared.canUseAlarms {
-                            self.startMission(for: config)
-                        } else {
-                            self.cancelAlarm(config)
-                            SubscriptionManager.shared.presentRequiredPaywall()
+                    switch alarm.state {
+                    case .alerting:
+                        if let config = self.alarms.first(where: { $0.id == alarm.id }) {
+                            if SubscriptionManager.shared.canUseAlarms {
+                                self.fireAlarm(config)
+                            } else {
+                                self.cancelAlarm(config)
+                                SubscriptionManager.shared.presentRequiredPaywall()
+                            }
+                        } else if SubscriptionManager.shared.canUseAlarms {
+                            self.fireAlarm(AlarmConfig(stepGoal: 30))
                         }
-                    } else if SubscriptionManager.shared.canUseAlarms {
-                        self.startMission(for: AlarmConfig(stepGoal: 30))
+                    case .scheduled:
+                        break
+                    case .countdown:
+                        break
+                    case .paused:
+                        break
+                    @unknown default:
+                        break
                     }
                 }
             }

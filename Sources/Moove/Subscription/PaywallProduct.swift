@@ -11,6 +11,7 @@ struct PaywallProduct {
     enum Backing {
         case revenueCat(StoreProduct)
         case storeKit(StoreKit.Product)
+        case development(mockPrice: String, productID: String)
     }
 
     let backing: Backing
@@ -19,6 +20,7 @@ struct PaywallProduct {
         switch backing {
         case .revenueCat(let product): product.productIdentifier
         case .storeKit(let product): product.id
+        case .development(_, let productID): return productID
         }
     }
 
@@ -26,6 +28,7 @@ struct PaywallProduct {
         switch backing {
         case .revenueCat(let product): product.localizedPriceString
         case .storeKit(let product): product.displayPrice
+        case .development(let mockPrice, _): return mockPrice
         }
     }
 }

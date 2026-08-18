@@ -82,6 +82,7 @@ final class SubscriptionManager: NSObject {
         guard RevenueCatConstants.isConfigured else {
             backend = .storeKit
             print("SubscriptionManager: RevenueCat SDK key is a placeholder — using direct StoreKit 2 backend with the local Moove.storekit configuration.")
+            loadStoreKitConfiguration()
             startStoreKitTransactionListener()
             Task { await finishUnfinishedStoreKitTransactions() }
             return
@@ -144,15 +145,36 @@ final class SubscriptionManager: NSObject {
                 let storeProducts = try await StoreKit.Product.products(for: RevenueCatConstants.subscriptionProductIDs)
                 products = storeProducts.map { PaywallProduct(backing: .storeKit($0)) }
                 productsLoadFailed = products.isEmpty
-                if !products.isEmpty {
+                if products.isEmpty {
+                    print("StoreKit: No products returned for IDs: \(RevenueCatConstants.subscriptionProductIDs)")
+                    #if DEBUG
+                    loadDevelopmentFallbackProducts()
+                    #endif
+                } else {
+                    print("StoreKit: Loaded \(products.count) products")
                     await refreshStoreKitTrialEligibility()
                 }
             } catch {
                 print("StoreKit: failed to load products: \(error.localizedDescription)")
                 productsLoadFailed = true
+                #if DEBUG
+                loadDevelopmentFallbackProducts()
+                #endif
             }
         }
     }
+
+    #if DEBUG
+    private func loadDevelopmentFallbackProducts() {
+        guard products.isEmpty else { return }
+        print("StoreKit: Loading development fallback products for simulator testing")
+        products = [
+            PaywallProduct(backing: .development(mockPrice: "$4.99/mo", productID: RevenueCatConstants.monthlyProductID)),
+            PaywallProduct(backing: .development(mockPrice: "$39.99/yr", productID: RevenueCatConstants.yearlyProductID))
+        ]
+        productsLoadFailed = false
+    }
+    #endif
 
     func purchase(_ product: PaywallProduct) async throws {
         ensureConfigured()
@@ -161,6 +183,14 @@ final class SubscriptionManager: NSObject {
             try await purchaseViaRevenueCat(storeProduct)
         case .storeKit(let storeProduct):
             try await purchaseViaStoreKit(storeProduct)
+        case .development:
+            #if DEBUG
+            print("StoreKit: Purchase attempted in development mode - simulated success")
+            isPremium = true
+            shouldShowPaywall = false
+            #else
+            throw SubscriptionError.unknown
+            #endif
         }
     }
 
@@ -332,6 +362,16 @@ final class SubscriptionManager: NSObject {
     }
 
     // MARK: - StoreKit 2 fallback backend
+
+    private func loadStoreKitConfiguration() {
+        #if DEBUG && canImport(StoreKitTest)
+        guard let storeKitURL = Bundle.main.url(forResource: "Moove", withExtension: "storekit") else {
+            print("StoreKit: Moove.storekit not found in bundle")
+            return
+        }
+        print("StoreKit: Moove.storekit found — StoreKit Configuration API no longer available in SDK 26+; use Xcode's StoreKit Configuration file directly in the scheme.")
+        #endif
+    }
 
     private func startStoreKitTransactionListener() {
         transactionUpdatesTask?.cancel()

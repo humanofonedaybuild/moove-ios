@@ -58,84 +58,8 @@ struct SettingsView: View {
             .mooveListRow()
 
             if !subscriptionManager.isPremium {
-                VStack(alignment: .leading, spacing: MooveSpacing.md) {
-                    VStack(spacing: 0) {
-                        Text("All of Moove.")
-                            .font(MooveFont.title())
-                            .foregroundStyle(Color.espresso)
-                        Text("Free for 7 days.")
-                            .font(MooveFont.displayItalic(size: 34))
-                            .foregroundStyle(Color.terracotta)
-                    }
-
-                    Text("Your trial includes every feature. Subscribe to keep it all — for as long as you're subscribed.")
-                        .font(MooveFont.caption())
-                        .foregroundStyle(Color.taupe)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    VStack(alignment: .leading, spacing: MooveSpacing.md) {
-                        Text("How it works")
-                            .mooveEyebrow()
-
-                        VStack(spacing: 0) {
-                            HStack(spacing: MooveSpacing.lg) {
-                                Image(systemName: "gift.fill")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundStyle(Color.terracotta)
-
-                                VStack(alignment: .leading, spacing: MooveSpacing.xs) {
-                                    Text("Days 1–7")
-                                        .font(MooveFont.subheadline(weight: .semibold))
-                                        .foregroundStyle(Color.espresso)
-                                    Text("Everything free. Every feature included.")
-                                        .font(MooveFont.subheadline())
-                                        .foregroundStyle(Color.taupe)
-                                }
-
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.vertical, MooveSpacing.md)
-
-                            Rectangle()
-                                .fill(Color.hairline)
-                                .frame(height: 1)
-
-                            HStack(spacing: MooveSpacing.lg) {
-                                Image(systemName: "arrow.triangle.2.circlepath")
-                                    .font(.system(size: 18, weight: .medium))
-                                    .foregroundStyle(Color.terracotta)
-
-                                VStack(alignment: .leading, spacing: MooveSpacing.xs) {
-                                    Text("Day 8+")
-                                        .font(MooveFont.subheadline(weight: .semibold))
-                                        .foregroundStyle(Color.espresso)
-                                    Text("Keep everything while subscribed. Cancel anytime.")
-                                        .font(MooveFont.subheadline())
-                                        .foregroundStyle(Color.taupe)
-                                }
-
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.vertical, MooveSpacing.md)
-                        }
-                    }
-
-                    SettingsPaywallPricing()
-
-                    Button {
-                        subscriptionManager.shouldShowPaywall = true
-                    } label: {
-                        HStack(spacing: MooveSpacing.sm) {
-                            Image(systemName: "sparkles")
-                            Text("See Plans & Pricing")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .mooveButton(.primary)
-                }
-                .padding(.vertical, MooveSpacing.md)
-                .listRowBackground(Color.cream)
+                premiumUpsellContent
+                    .listRowBackground(Color.cream)
             }
 
             Button {
@@ -149,6 +73,86 @@ struct SettingsView: View {
             Text("Moove Premium")
                 .mooveEyebrow()
         }
+    }
+
+    private var premiumUpsellContent: some View {
+        VStack(alignment: .leading, spacing: MooveSpacing.md) {
+            VStack(spacing: 0) {
+                Text("All of Moove.")
+                    .font(MooveFont.title())
+                    .foregroundStyle(Color.espresso)
+                Text("Free for 7 days.")
+                    .font(MooveFont.displayItalic(size: 34))
+                    .foregroundStyle(Color.terracotta)
+            }
+
+            Text("Your trial includes every feature. Subscribe to keep it all — for as long as you're subscribed.")
+                .font(MooveFont.caption())
+                .foregroundStyle(Color.taupe)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: MooveSpacing.md) {
+                Text("How it works")
+                    .mooveEyebrow()
+
+                VStack(spacing: 0) {
+                    HStack(spacing: MooveSpacing.lg) {
+                        Image(systemName: "gift.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(Color.terracotta)
+
+                        VStack(alignment: .leading, spacing: MooveSpacing.xs) {
+                            Text("Days 1–7")
+                                .font(MooveFont.subheadline(weight: .semibold))
+                                .foregroundStyle(Color.espresso)
+                            Text("Everything free. Every feature included.")
+                                .font(MooveFont.subheadline())
+                                .foregroundStyle(Color.taupe)
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, MooveSpacing.md)
+
+                    Rectangle()
+                        .fill(Color.hairline)
+                        .frame(height: 1)
+
+                    HStack(spacing: MooveSpacing.lg) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(Color.terracotta)
+
+                        VStack(alignment: .leading, spacing: MooveSpacing.xs) {
+                            Text("Day 8+")
+                                .font(MooveFont.subheadline(weight: .semibold))
+                                .foregroundStyle(Color.espresso)
+                            Text("Keep everything while subscribed. Cancel anytime.")
+                                .font(MooveFont.subheadline())
+                                .foregroundStyle(Color.taupe)
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, MooveSpacing.md)
+                }
+            }
+
+            SettingsPaywallPricing()
+
+            Button {
+                subscriptionManager.shouldShowPaywall = true
+            } label: {
+                HStack(spacing: MooveSpacing.sm) {
+                    Image(systemName: "sparkles")
+                    Text("See Plans & Pricing")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .mooveButton(.primary)
+        }
+        .padding(.vertical, MooveSpacing.md)
     }
 
     private var defaultsSection: some View {
