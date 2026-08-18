@@ -2,9 +2,9 @@ name: Moove
 options:
   bundleIdPrefix: com.moove
   deploymentTarget:
-    iOS: "18.0"
-    watchOS: "9.0"
-  xcodeVersion: "16.0"
+    iOS: "26.0"
+    watchOS: "12.0"
+  xcodeVersion: "26.0"
   createIntermediateGroups: true
 
 settings:
@@ -53,7 +53,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "8"
+        CFBundleVersion: "9"
         ITSAppUsesNonExemptEncryption: false
         "NSAlarmKitUsageDescription": "Moove schedules alarms to wake you up. You must walk to dismiss them."
     sources:

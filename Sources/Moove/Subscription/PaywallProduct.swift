@@ -18,16 +18,16 @@ struct PaywallProduct {
 
     var productIdentifier: String {
         switch backing {
-        case .revenueCat(let product): product.productIdentifier
-        case .storeKit(let product): product.id
+        case .revenueCat(let product): return product.productIdentifier
+        case .storeKit(let product): return product.id
         case .development(_, let productID): return productID
         }
     }
 
     var localizedPriceString: String {
         switch backing {
-        case .revenueCat(let product): product.localizedPriceString
-        case .storeKit(let product): product.displayPrice
+        case .revenueCat(let product): return product.localizedPriceString
+        case .storeKit(let product): return product.displayPrice
         case .development(let mockPrice, _): return mockPrice
         }
     }

@@ -17,27 +17,11 @@ extension AlarmManager.AlarmConfiguration {
         ]
         let weekdays = config.weekdays.compactMap { weekdayMapping[$0] }
 
-        let calendar = Calendar.current
-        var dateComponents = DateComponents()
-        dateComponents.hour = config.hour
-        dateComponents.minute = config.minute
-
-        let schedule: AlarmManager.AlarmConfiguration<MooveAlarmMetadata>.Schedule
-        if weekdays.isEmpty {
-            schedule = AlarmManager.AlarmConfiguration<MooveAlarmMetadata>.Schedule.absolute(
-                Alarm.Schedule.Absolute(
-                    date: Calendar.current.date(from: dateComponents) ?? Date(),
-                    repeats: false
-                )
-            )
-        } else {
-            schedule = AlarmManager.AlarmConfiguration<MooveAlarmMetadata>.Schedule.calendar(
-                Alarm.Schedule.Calendar(
-                    dateComponents: dateComponents,
-                    repeats: .weekly(weekdays)
-                )
-            )
-        }
+        let time = Alarm.Schedule.Relative.Time(hour: config.hour, minute: config.minute)
+        let recurrence: Alarm.Schedule.Relative.Recurrence = weekdays.isEmpty
+            ? .never
+            : .weekly(weekdays)
+        let schedule = Alarm.Schedule.relative(.init(time: time, repeats: recurrence))
 
         let presentation = AlarmPresentation(
             alert: AlarmPresentation.Alert(
