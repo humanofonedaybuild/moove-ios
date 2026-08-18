@@ -42,7 +42,12 @@ struct ContentView: View {
         }
         .tint(.espresso)
         .fullScreenCover(isPresented: .init(
-            get: { alarmManager.activeMission != nil || alarmManager.alarmState == .stopped },
+            get: {
+                alarmManager.activeMission != nil
+                    || alarmManager.alarmState == .firing
+                    || alarmManager.alarmState == .missionActive
+                    || alarmManager.alarmState == .stopped
+            },
             set: { if !$0 { alarmManager.cancelMission() } }
         )) {
             AlarmMissionView()

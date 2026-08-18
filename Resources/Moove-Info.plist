@@ -6,6 +6,8 @@
 	<array>
 		<string>NSExtension</string>
 	</array>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>Moove schedules alarms to wake you up. You must walk to dismiss them.</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.moove.alarmclock.refresh</string>

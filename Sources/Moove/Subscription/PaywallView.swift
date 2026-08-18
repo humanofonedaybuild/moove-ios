@@ -13,6 +13,7 @@ struct PaywallView: View {
     @State private var isPurchasing = false
     @State private var purchaseError: String?
     @State private var selectedPlan: Plan = .yearly
+    @State private var hasCompletedInitialFetch = false
 
     var body: some View {
         ScrollView {
@@ -30,13 +31,9 @@ struct PaywallView: View {
         .scrollDismissesKeyboard(.interactively)
         .mooveScreenBackground()
         .task {
-            // Products must be loaded for the paywall to show pricing and for
-            // the purchase button to be actionable. `refreshSubscriptionState`
-            // alone only reads entitlements — it does not fetch products — so
-            // fetching here guarantees the paywall is never stuck on
-            // "Pricing unavailable" with a disabled, unresponsive CTA (MOO-112).
             await subscriptionManager.fetchProducts()
             await subscriptionManager.refreshSubscriptionState()
+            hasCompletedInitialFetch = true
         }
     }
 
@@ -162,32 +159,7 @@ struct PaywallView: View {
                 ProgressView()
                     .tint(.espresso)
                     .padding(.vertical, MooveSpacing.lg)
-            } else if subscriptionManager.products.isEmpty {
-                VStack(spacing: MooveSpacing.md) {
-                    Text("Pricing unavailable")
-                        .font(MooveFont.subheadline())
-                        .foregroundStyle(Color.taupe)
-
-                    Text(subscriptionManager.productsLoadFailed
-                         ? "We couldn't load subscription options. Check your connection and try again."
-                         : "We couldn't load subscription options right now.")
-                        .font(MooveFont.caption())
-                        .foregroundStyle(Color.taupe.opacity(0.7))
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: 260)
-
-                    Button {
-                        Task { await subscriptionManager.fetchProducts() }
-                    } label: {
-                        Text("Retry")
-                            .font(MooveFont.caption())
-                            .foregroundStyle(Color.terracotta)
-                            .frame(width: 200, height: 44)
-                    }
-                    .accessibilityIdentifier("paywall.retryButton")
-                }
-            } else {
+            } else if !subscriptionManager.products.isEmpty {
                 Text("Start your 7-day free trial")
                     .font(MooveFont.headline())
                     .foregroundStyle(Color.espresso)
@@ -216,6 +188,35 @@ struct PaywallView: View {
                         action: { selectedPlan = .yearly }
                     )
                 }
+            } else if hasCompletedInitialFetch {
+                VStack(spacing: MooveSpacing.md) {
+                    Text("Pricing unavailable")
+                        .font(MooveFont.subheadline())
+                        .foregroundStyle(Color.taupe)
+
+                    Text(subscriptionManager.productsLoadFailed
+                         ? "We couldn't load subscription options. Check your connection and try again."
+                         : "We couldn't load subscription options right now.")
+                        .font(MooveFont.caption())
+                        .foregroundStyle(Color.taupe.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 260)
+
+                    Button {
+                        Task { await subscriptionManager.fetchProducts() }
+                    } label: {
+                        Text("Retry")
+                            .font(MooveFont.caption())
+                            .foregroundStyle(Color.terracotta)
+                            .frame(width: 200, height: 44)
+                    }
+                    .accessibilityIdentifier("paywall.retryButton")
+                }
+            } else {
+                ProgressView()
+                    .tint(.espresso)
+                    .padding(.vertical, MooveSpacing.lg)
             }
         }
         .frame(maxWidth: .infinity)

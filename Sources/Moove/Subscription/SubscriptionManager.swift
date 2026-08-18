@@ -116,6 +116,7 @@ final class SubscriptionManager: NSObject {
 
     func fetchProducts() async {
         ensureConfigured()
+        guard !isLoadingProducts else { return }
         isLoadingProducts = true
         defer { isLoadingProducts = false }
 

@@ -135,9 +135,9 @@ struct SettingsView: View {
                         .frame(maxWidth: .infinity)
                     }
                     .mooveButton(.primary)
-                    .mooveListRow()
                 }
                 .padding(.vertical, MooveSpacing.md)
+                .listRowBackground(Color.cream)
             }
 
             Button {
@@ -407,21 +407,17 @@ private struct PermissionRow: View {
     }
 }
 
-/// StoreKit 2 pricing for Settings → Moove Premium (MOO-123).
+/// StoreKit 2 pricing for Settings -> Moove Premium (MOO-123).
 /// Same pattern as PaywallView: fetch, loading, prices, retry.
 private struct SettingsPaywallPricing: View {
     @Environment(SubscriptionManager.self)
     private var subscriptionManager
 
+    @State private var hasCompletedInitialFetch = false
+
     var body: some View {
         Group {
-            if subscriptionManager.isLoadingProducts && subscriptionManager.products.isEmpty {
-                ProgressView()
-                    .tint(.espresso)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, MooveSpacing.sm)
-                    .accessibilityIdentifier("settings.pricing.loading")
-            } else if subscriptionManager.monthlyProduct != nil || subscriptionManager.yearlyProduct != nil {
+            if subscriptionManager.monthlyProduct != nil || subscriptionManager.yearlyProduct != nil {
                 VStack(spacing: MooveSpacing.sm) {
                     if let monthly = subscriptionManager.monthlyProduct {
                         priceRow(title: "Monthly", price: "\(monthly.localizedPriceString) / month")
@@ -433,7 +429,13 @@ private struct SettingsPaywallPricing: View {
                     }
                 }
                 .accessibilityIdentifier("settings.pricing.loaded")
-            } else {
+            } else if subscriptionManager.isLoadingProducts {
+                ProgressView()
+                    .tint(.espresso)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, MooveSpacing.sm)
+                    .accessibilityIdentifier("settings.pricing.loading")
+            } else if hasCompletedInitialFetch && subscriptionManager.productsLoadFailed {
                 VStack(spacing: MooveSpacing.sm) {
                     Text("Pricing unavailable")
                         .font(MooveFont.caption())
@@ -451,11 +453,18 @@ private struct SettingsPaywallPricing: View {
                     }
                     .accessibilityIdentifier("settings.pricing.retry")
                 }
+            } else {
+                ProgressView()
+                    .tint(.espresso)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, MooveSpacing.sm)
+                    .accessibilityIdentifier("settings.pricing.loading")
             }
         }
         .task {
             await subscriptionManager.fetchProducts()
             await subscriptionManager.refreshSubscriptionState()
+            hasCompletedInitialFetch = true
         }
     }
 
