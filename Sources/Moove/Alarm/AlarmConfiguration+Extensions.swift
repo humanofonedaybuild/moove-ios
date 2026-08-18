@@ -3,7 +3,6 @@ import SwiftUI
 import AlarmKit
 import MooveKit
 
-@available(iOS 26.0, *)
 extension AlarmManager.AlarmConfiguration {
     static func make(for config: AlarmConfig) -> AlarmManager.AlarmConfiguration<MooveAlarmMetadata> {
         let metadata = MooveAlarmMetadata(
@@ -50,6 +49,9 @@ extension AlarmManager.AlarmConfiguration {
         return AlarmManager.AlarmConfiguration.alarm(
             schedule: schedule,
             attributes: attributes,
+            stopIntent: StopAlarmIntent(
+                alarmIdentifier: config.id.uuidString
+            ),
             secondaryIntent: StartWalkingIntent(
                 stepsRequired: config.stepGoal,
                 alarmIdentifier: config.id.uuidString

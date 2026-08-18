@@ -1,6 +1,6 @@
 import SwiftUI
 import CoreMotion
-import UserNotifications
+import AlarmKit
 import MooveKit
 
 struct OnboardingView: View {
@@ -102,8 +102,7 @@ struct OnboardingView: View {
         Task { @MainActor in
             await withTaskGroup(of: Void.self) { group in
                 group.addTask {
-                    _ = try? await UNUserNotificationCenter.current()
-                        .requestAuthorization(options: [.alert, .sound, .badge])
+                    _ = await AppAlarmManager.shared.requestAuthorizationIfNeeded()
                 }
 
                 group.addTask {
@@ -121,14 +120,6 @@ struct OnboardingView: View {
                             once.resume()
                         }
                     }
-                }
-
-                group.addTask {
-                    _ = await AppAlarmManager.shared.requestAuthorizationIfNeeded()
-                }
-
-                group.addTask {
-                    try? await Task.sleep(for: .seconds(5))
                 }
 
                 _ = await group.next()
@@ -272,12 +263,6 @@ private struct PermissionsPage: View {
                     icon: "figure.walk",
                     title: "Motion & Fitness",
                     description: "Counts your wake-up steps so the alarm knows when you're up."
-                )
-
-                PermissionCard(
-                    icon: "bell.badge.fill",
-                    title: "Notifications",
-                    description: "Alerts you when it's time to wake up and move."
                 )
             }
             .padding(.top, MooveSpacing.xxxl)

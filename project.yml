@@ -2,7 +2,7 @@ name: Moove
 options:
   bundleIdPrefix: com.moove
   deploymentTarget:
-    iOS: "18.0"
+    iOS: "26.0"
     watchOS: "11.0"
   xcodeVersion: "16.0"
   createIntermediateGroups: true

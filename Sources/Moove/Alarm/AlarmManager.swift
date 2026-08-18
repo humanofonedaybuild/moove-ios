@@ -5,7 +5,7 @@ import MooveKit
 
 @Observable
 @MainActor
-final class AppAlarmManager: NSObject {
+final class AppAlarmManager {
     static let shared = AppAlarmManager()
 
     var alarms: [AlarmConfig] = []
@@ -15,11 +15,12 @@ final class AppAlarmManager: NSObject {
 
     private var alarmObservationTask: Task<Void, Never>?
 
-    private override init() {
-        super.init()
+    private init() {
         loadAlarms()
         observeAlarmUpdates()
     }
+
+    // MARK: - Alarm CRUD
 
     func addAlarm(_ config: AlarmConfig? = nil) {
         let newConfig = config ?? AlarmConfig(
@@ -70,12 +71,10 @@ final class AppAlarmManager: NSObject {
         saveAlarms()
     }
 
-    /// Requests AlarmKit authorization when undetermined. Scheduling throws
-    /// `.notAuthorized` without it — previously nothing in the app ever asked,
-    /// so a fresh install silently failed to schedule every alarm (QA MOO-87).
+    // MARK: - Authorization
+
     @discardableResult
     func requestAuthorizationIfNeeded() async -> Bool {
-        guard #available(iOS 26.0, *) else { return true }
         switch AlarmManager.shared.authorizationState {
         case .authorized:
             return true
@@ -89,17 +88,16 @@ final class AppAlarmManager: NSObject {
         }
     }
 
+    // MARK: - Scheduling
+
     private func scheduleAlarm(_ config: AlarmConfig) async {
         guard config.isEnabled else { return }
         guard SubscriptionManager.shared.canUseAlarms else {
             print("AlarmKit: subscription locked — alarm \(config.id) was not scheduled")
             return
         }
-        guard #available(iOS 26.0, *) else { return }
-        guard await requestAuthorizationIfNeeded() else {
-            print("AlarmKit: authorization not granted — alarm \(config.id) was not scheduled")
-            return
-        }
+        _ = await requestAuthorizationIfNeeded()
+
         let alarmConfig: AlarmManager.AlarmConfiguration<MooveAlarmMetadata> = .make(for: config)
         do {
             _ = try await AlarmManager.shared.schedule(id: config.id, configuration: alarmConfig)
@@ -108,9 +106,15 @@ final class AppAlarmManager: NSObject {
         }
     }
 
+    // MARK: - Cancellation
+
     private func cancelAlarm(_ config: AlarmConfig) {
-        guard #available(iOS 26.0, *) else { return }
         try? AlarmManager.shared.cancel(id: config.id)
+    }
+
+    func cancelAlarm(with id: UUID) {
+        try? AlarmManager.shared.cancel(id: id)
+        cancelMission()
     }
 
     func suspendAllScheduledAlarms() {
@@ -124,6 +128,8 @@ final class AppAlarmManager: NSObject {
             await scheduleAlarm(config)
         }
     }
+
+    // MARK: - Mission lifecycle
 
     func startMission(for config: AlarmConfig) {
         guard SubscriptionManager.shared.canUseAlarms else {
@@ -146,10 +152,6 @@ final class AppAlarmManager: NSObject {
         AlarmMissionActivity.shared.endActivity()
         StepCounter.shared.stopCounting()
         AudioManager.shared.stopAlarmSound()
-        // The completion view ("Good Morning!") stays up until the user taps
-        // "Start Your Day", which calls `cancelMission()` to clear state and
-        // dismiss the cover. A timed auto-dismiss would race the user (and the
-        // UI test) and make the "Start Your Day" button unreachable.
     }
 
     func cancelMission() {
@@ -162,14 +164,12 @@ final class AppAlarmManager: NSObject {
         AlarmMissionActivity.shared.endActivity()
     }
 
+    // MARK: - Snooze
+
     var snoozedDuration: TimeInterval?
     private var snoozeTask: Task<Void, Never>?
 
     func snoozeAlarm(duration: TimeInterval) {
-        // Snooze is valid both while the alarm is alerting (.firing) and
-        // during the active mission (.missionActive) — the in-app flow jumps
-        // straight to .missionActive on alert, so requiring .firing here
-        // would silently ignore the very first snooze tap (QA MOO-87).
         guard let mission = activeMission,
               mission.snoozeEnabled,
               mission.snoozeRemaining > 0,
@@ -188,7 +188,7 @@ final class AppAlarmManager: NSObject {
         snoozeTask = Task { @MainActor [weak self, duration, updated] in
             try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
             guard let self, self.alarmState == .snoozed else { return }
-            self.fireAlarm(updated)
+            self.startMission(for: updated)
         }
     }
 
@@ -196,15 +196,18 @@ final class AppAlarmManager: NSObject {
         (activeMission?.snoozeRemaining ?? 1) <= 0
     }
 
+    // MARK: - Fire
+
     private func fireAlarm(_ config: AlarmConfig) {
         guard SubscriptionManager.shared.canUseAlarms else {
             cancelAlarm(config)
             SubscriptionManager.shared.presentRequiredPaywall()
             return
         }
-        alarmState = .firing
-        AudioManager.shared.playAlarmSound(named: config.soundName)
+        startMission(for: config)
     }
+
+    // MARK: - Persistence
 
     private func loadAlarms() {
         let data = UserDefaults(suiteName: Constants.appGroupIdentifier)?
@@ -218,8 +221,9 @@ final class AppAlarmManager: NSObject {
             .set(data, forKey: "savedAlarms")
     }
 
+    // MARK: - AlarmKit observation
+
     private func observeAlarmUpdates() {
-        guard #available(iOS 26.0, *) else { return }
         alarmObservationTask = Task { [weak self] in
             for await alarms in AlarmManager.shared.alarmUpdates {
                 guard let self else { return }

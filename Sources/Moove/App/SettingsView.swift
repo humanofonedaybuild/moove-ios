@@ -1,7 +1,6 @@
 import SwiftUI
 import MooveKit
 import CoreMotion
-import UserNotifications
 import AlarmKit
 
 struct SettingsView: View {
@@ -29,7 +28,6 @@ struct SettingsView: View {
             .tint(.terracotta)
             .navigationTitle("Settings")
             .task {
-                    refreshNotificationStatus()
                     if !subscriptionManager.isPremium {
                         await subscriptionManager.fetchProducts()
                     }
@@ -250,11 +248,6 @@ struct SettingsView: View {
                 title: "Motion & Fitness",
                 status: motionAuthorizationStatus
             )
-PermissionRow(
-                    icon: "bell.badge.fill",
-                    title: "Notifications",
-                    status: notificationStatus
-                )
         } header: {
             Text("Permissions")
                 .mooveEyebrow()
@@ -331,45 +324,22 @@ PermissionRow(
     }
 
     private var alarmAuthorizationStatus: String {
-        if #available(iOS 26.0, *) {
-            switch AlarmManager.shared.authorizationState {
-            case .authorized: return "Authorized"
-            case .denied: return "Denied"
-            case .notDetermined: return "Not Determined"
-            @unknown default: return "Unknown"
-            }
+        switch AlarmManager.shared.authorizationState {
+        case .authorized: return "Authorized"
+        case .denied: return "Denied"
+        case .notDetermined: return "Not Determined"
+        @unknown default: return "Unknown"
         }
-        return "Unavailable"
     }
 
     private var motionAuthorizationStatus: String {
-        if #available(iOS 17.0, *) {
-            let status = CMPedometer.authorizationStatus()
-            switch status {
-            case .authorized: return "Authorized"
-            case .denied: return "Denied"
-            case .restricted: return "Restricted"
-            case .notDetermined: return "Not Determined"
-            @unknown default: return "Unknown"
-            }
-        }
-        return CMPedometer.isStepCountingAvailable() ? "Available" : "Unavailable"
-    }
-
-    @State private var notificationStatus: String = "Checking..."
-
-    private func refreshNotificationStatus() {
-        UNUserNotificationCenter.current().getNotificationSettings { settings in
-            let status: String
-            switch settings.authorizationStatus {
-            case .authorized, .provisional, .ephemeral: status = "Enabled"
-            case .denied: status = "Disabled"
-            case .notDetermined: status = "Not Determined"
-            @unknown default: status = "Unknown"
-            }
-            Task { @MainActor in
-                self.notificationStatus = status
-            }
+        let status = CMPedometer.authorizationStatus()
+        switch status {
+        case .authorized: return "Authorized"
+        case .denied: return "Denied"
+        case .restricted: return "Restricted"
+        case .notDetermined: return "Not Determined"
+        @unknown default: return "Unknown"
         }
     }
 }
