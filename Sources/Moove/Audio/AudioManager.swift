@@ -55,12 +55,30 @@ final class AudioManager: NSObject {
     }
 
     func playAlarmSound(named soundName: String, preview: Bool = false) {
-        guard let url = AudioLibrary.shared.url(for: soundName) else { return }
+        guard let url = AudioLibrary.shared.url(for: soundName) else {
+            if let fallbackUrl = AudioLibrary.shared.url(for: "default") {
+                playSoundFromURL(fallbackUrl, preview: preview)
+            }
+            return
+        }
+        playSoundFromURL(url, preview: preview)
+    }
+
+    private func playSoundFromURL(_ url: URL, preview: Bool) {
         if audioPlayer?.isPlaying == true {
             audioPlayer?.stop()
         }
         try? audioSession.setActive(true)
-        audioPlayer = try? AVAudioPlayer(contentsOf: url)
+        do {
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+        } catch {
+            print("AudioManager: failed to create player for \(url.lastPathComponent): \(error.localizedDescription)")
+            if let fallbackUrl = AudioLibrary.shared.url(for: "default"),
+               fallbackUrl != url {
+                audioPlayer = try? AVAudioPlayer(contentsOf: fallbackUrl)
+            }
+            if audioPlayer == nil { return }
+        }
         audioPlayer?.numberOfLoops = preview ? 0 : -1
         audioPlayer?.delegate = self
 
@@ -68,7 +86,6 @@ final class AudioManager: NSObject {
         audioPlayer?.volume = gradual ? 0.0 : 1.0
         audioPlayer?.play()
         if gradual {
-            // "Slowly increase alarm volume over 30 seconds" (Settings).
             audioPlayer?.setVolume(1.0, fadeDuration: Constants.gradualVolumeRampDuration)
         }
     }

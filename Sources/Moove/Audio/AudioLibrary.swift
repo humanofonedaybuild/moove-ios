@@ -42,18 +42,11 @@ final class AudioLibrary {
     }
 
     func url(for soundName: String) -> URL? {
-        if let imported = importedSounds.first(where: { $0.id == soundName }),
+        if let _ = importedSounds.first(where: { $0.id == soundName }),
            let url = importedFileURL(for: soundName) {
             return url
         }
         if let builtIn = builtInSounds.first(where: { $0.id == soundName }) {
-            if let url = Bundle.main.url(
-                forResource: builtIn.filename,
-                withExtension: "caf",
-                subdirectory: "Sounds"
-            ) {
-                return url
-            }
             return Bundle.main.url(
                 forResource: builtIn.filename,
                 withExtension: "caf",
@@ -134,7 +127,8 @@ final class AudioLibrary {
     }
 
     private func importedSoundsDirectory() -> URL {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         return documents.appendingPathComponent("ImportedSounds", isDirectory: true)
     }
 
@@ -177,8 +171,7 @@ final class AudioLibrary {
     private func updateBuiltInDurations() {
         builtInSounds = builtInSounds.map { sound in
             var s = sound
-            if let url = Bundle.main.url(forResource: s.filename, withExtension: "caf", subdirectory: "Sounds")
-                ?? Bundle.main.url(forResource: s.filename, withExtension: "caf", subdirectory: "Sounds"),
+            if let url = Bundle.main.url(forResource: s.filename, withExtension: "caf", subdirectory: "Sounds"),
                let player = try? AVAudioPlayer(contentsOf: url) {
                 s.duration = player.duration
             }
@@ -188,12 +181,19 @@ final class AudioLibrary {
 
     private static let defaultBuiltInSounds: [Sound] = [
         Sound(id: "default",   displayName: "Default Alarm", filename: "default_alarm", icon: "bell.fill"),
-        Sound(id: "gentle",    displayName: "Gentle Chime",  filename: "gentle_wake",  icon: "wind"),
-        Sound(id: "breeze",    displayName: "Soft Breeze",   filename: "gentle_wake",  icon: "wind.snow"),
-        Sound(id: "birds",     displayName: "Morning Birds", filename: "nature",      icon: "leaf.fill"),
-        Sound(id: "waves",     displayName: "Ocean Waves",   filename: "nature",      icon: "water.waves"),
-        Sound(id: "urgent",    displayName: "Urgent",        filename: "urgent",       icon: "exclamationmark.triangle.fill"),
-        Sound(id: "digital",   displayName: "Digital",       filename: "digital",      icon: "clock.fill"),
-        Sound(id: "nature",    displayName: "Nature Walk",   filename: "nature",       icon: "tree.fill"),
+        Sound(id: "gentle",    displayName: "Gentle Wake",   filename: "gentle_wake",   icon: "wind"),
+        Sound(id: "nature",    displayName: "Nature Sounds", filename: "nature",       icon: "leaf.fill"),
+        Sound(id: "urgent",    displayName: "Urgent",        filename: "urgent",        icon: "exclamationmark.triangle.fill"),
+        Sound(id: "digital",   displayName: "Digital",       filename: "digital",       icon: "clock.fill"),
     ]
+
+    private static let legacySoundMigrationMap: [String: String] = [
+        "breeze": "gentle",
+        "birds": "nature",
+        "waves": "nature",
+    ]
+
+    static func migrateSoundName(_ name: String) -> String {
+        legacySoundMigrationMap[name] ?? name
+    }
 }

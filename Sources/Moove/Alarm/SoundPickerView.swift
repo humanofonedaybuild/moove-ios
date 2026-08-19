@@ -240,9 +240,8 @@ struct SoundPickerView: View {
             let didStart = url.startAccessingSecurityScopedResource()
             defer { if didStart { url.stopAccessingSecurityScopedResource() } }
             Task {
-                let sound = await audioLibrary.importSound(from: url)
-                if sound != nil {
-                    selectedSound = sound!.id
+                if let sound = await audioLibrary.importSound(from: url) {
+                    selectedSound = sound.id
                     dismiss()
                 }
             }

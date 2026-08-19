@@ -523,7 +523,11 @@ final class SubscriptionManager: NSObject {
 
         func consider(_ date: Date?) {
             guard let date else { return }
-            if latest == nil || date > latest! { latest = date }
+            if let current = latest {
+                if date > current { latest = date }
+            } else {
+                latest = date
+            }
         }
 
         for product in products {

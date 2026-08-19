@@ -37,9 +37,9 @@ final class AppAlarmManager {
     func updateAlarm(_ config: AlarmConfig) {
         guard let index = alarms.firstIndex(where: { $0.id == config.id }) else { return }
         cancelAlarm(alarms[index])
-        alarms[index] = config
-        let refreshed = alarms
-        alarms = refreshed
+        var updatedAlarms = alarms
+        updatedAlarms[index] = config
+        alarms = updatedAlarms
         Task { await scheduleAlarm(config) }
         saveAlarms()
     }
@@ -67,9 +67,10 @@ final class AppAlarmManager {
         } else {
             cancelAlarm(updated)
         }
-        if let index = alarms.firstIndex(where: { $0.id == config.id }) {
-            alarms[index] = updated
-        }
+        guard let index = alarms.firstIndex(where: { $0.id == config.id }) else { return }
+        var updatedAlarms = alarms
+        updatedAlarms[index] = updated
+        alarms = updatedAlarms
         saveAlarms()
     }
 
@@ -140,19 +141,18 @@ final class AppAlarmManager {
     func startMission(for config: AlarmConfig) {
         guard SubscriptionManager.shared.canUseAlarms else {
             try? AlarmManager.shared.stop(id: config.id)
-            AudioManager.shared.stopAlarmSound()
             SubscriptionManager.shared.presentRequiredPaywall()
             return
         }
         if let active = activeMission, active.id == config.id, alarmState == .missionActive {
             return
         }
+        AudioManager.shared.playAlarmSound(named: config.soundName)
         try? AlarmManager.shared.stop(id: config.id)
         activeMission = config
         alarmState = .missionActive
         missionStartTime = Date()
         StepCounter.shared.beginCounting(downFrom: config.stepGoal)
-        AudioManager.shared.playAlarmSound(named: config.soundName)
         WatchSessionManager.shared.sendMissionStart(stepsRequired: config.stepGoal)
         AlarmMissionActivity.shared.startActivity(stepsRequired: config.stepGoal)
     }
@@ -183,30 +183,82 @@ final class AppAlarmManager {
     private var snoozeTask: Task<Void, Never>?
 
     func snoozeAlarm(duration: TimeInterval) {
-        guard let mission = activeMission,
+        guard alarmState == .firing || alarmState == .missionActive || alarmState == .idle,
+              let mission = activeMission ?? currentFiringAlarm,
               mission.snoozeEnabled,
-              mission.snoozeRemaining > 0,
-              alarmState == .firing || alarmState == .missionActive
+              mission.snoozeRemaining > 0
         else { return }
+
         snoozeTask?.cancel()
+
         var updated = mission
         updated.snoozeRemaining -= 1
         snoozedDuration = duration
         activeMission = updated
         alarmState = .snoozed
+
         AudioManager.shared.stopAlarmSound()
+        StepCounter.shared.stopCounting()
+        AlarmMissionActivity.shared.endActivity()
+
         if let index = alarms.firstIndex(where: { $0.id == updated.id }) {
-            alarms[index].snoozeRemaining = updated.snoozeRemaining
+            var updatedAlarms = alarms
+            updatedAlarms[index].snoozeRemaining = updated.snoozeRemaining
+            alarms = updatedAlarms
         }
-        snoozeTask = Task { @MainActor [weak self, duration, updated] in
-            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
-            guard let self, self.alarmState == .snoozed else { return }
-            self.startMission(for: updated)
+
+        let fireDate = Date().addingTimeInterval(duration)
+        let fireComponents = Calendar.current.dateComponents([.hour, .minute], from: fireDate)
+        let snoozeHour = fireComponents.hour ?? 0
+        let snoozeMinute = fireComponents.minute ?? 0
+
+        var snoozeConfig = updated
+        snoozeConfig.hour = snoozeHour
+        snoozeConfig.minute = snoozeMinute
+        snoozeConfig.weekdays = []
+        snoozeConfig.isEnabled = true
+
+        Task { @MainActor in
+            await scheduleAlarm(snoozeConfig)
         }
+
+        saveAlarms()
+    }
+
+    private var currentFiringAlarm: AlarmConfig? {
+        guard alarmState == .idle || alarmState == .firing else { return nil }
+        return activeMission
     }
 
     var snoozeUsedThisMission: Bool {
         (activeMission?.snoozeRemaining ?? 1) <= 0
+    }
+
+    func handleSnoozeFromLockScreen(alarmIdentifier: String?, snoozeEnabled: Bool) {
+        let config: AlarmConfig
+        if let alarmID = alarmIdentifier,
+           let uuid = UUID(uuidString: alarmID),
+           let found = alarms.first(where: { $0.id == uuid }) {
+            config = found
+        } else if let active = activeMission {
+            config = active
+        } else {
+            config = AlarmConfig(stepGoal: 30)
+        }
+
+        if alarmState == .missionActive,
+           let active = activeMission,
+           active.id == config.id {
+            return
+        }
+
+        if snoozeEnabled && config.snoozeRemaining > 0 {
+            let snoozeDuration = AppSettings.load().snoozeDuration
+            activeMission = config
+            snoozeAlarm(duration: snoozeDuration)
+        } else {
+            startMission(for: config)
+        }
     }
 
     // MARK: - Fire
@@ -225,7 +277,19 @@ final class AppAlarmManager {
     private func loadAlarms() {
         let data = UserDefaults(suiteName: Constants.appGroupIdentifier)?
             .data(forKey: "savedAlarms")
-        alarms = (try? JSONDecoder().decode([AlarmConfig].self, from: data ?? Data())) ?? []
+        var loaded = (try? JSONDecoder().decode([AlarmConfig].self, from: data ?? Data())) ?? []
+        let needsMigration = loaded.contains { config in
+            AudioLibrary.migrateSoundName(config.soundName) != config.soundName
+        }
+        if needsMigration {
+            for i in loaded.indices {
+                loaded[i].soundName = AudioLibrary.migrateSoundName(loaded[i].soundName)
+            }
+            alarms = loaded
+            saveAlarms()
+        } else {
+            alarms = loaded
+        }
     }
 
     private func saveAlarms() {
@@ -243,14 +307,22 @@ final class AppAlarmManager {
                 for alarm in alarms {
                     switch alarm.state {
                     case .alerting:
-                        if let config = self.alarms.first(where: { $0.id == alarm.id }) {
+                        if self.alarmState == .snoozed {
+                            if let snoozedConfig = self.activeMission {
+                                self.alarmState = .firing
+                                self.fireAlarm(snoozedConfig)
+                                self.cancelAlarm(snoozedConfig)
+                            }
+                        } else if let config = self.alarms.first(where: { $0.id == alarm.id }) {
                             if SubscriptionManager.shared.canUseAlarms {
+                                self.alarmState = .firing
                                 self.fireAlarm(config)
                             } else {
                                 self.cancelAlarm(config)
                                 SubscriptionManager.shared.presentRequiredPaywall()
                             }
                         } else if SubscriptionManager.shared.canUseAlarms {
+                            self.alarmState = .firing
                             self.fireAlarm(AlarmConfig(stepGoal: 30))
                         }
                     case .scheduled:

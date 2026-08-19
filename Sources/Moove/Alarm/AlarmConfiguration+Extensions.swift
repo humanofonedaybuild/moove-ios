@@ -4,17 +4,6 @@ import AlarmKit
 import ActivityKit
 import MooveKit
 
-private let mooveSoundFilenameMap: [String: String] = [
-    "default": "default_alarm",
-    "gentle": "gentle_wake",
-    "breeze": "gentle_wake",
-    "birds": "nature",
-    "waves": "nature",
-    "urgent": "urgent",
-    "digital": "digital",
-    "nature": "nature",
-]
-
 extension AlarmManager.AlarmConfiguration {
     static func make(for config: AlarmConfig) -> AlarmManager.AlarmConfiguration<MooveAlarmMetadata> {
         let metadata = MooveAlarmMetadata(
@@ -68,15 +57,7 @@ extension AlarmManager.AlarmConfiguration {
             tintColor: Color.terracotta
         )
 
-        let alarmSound: AlertConfiguration.AlertSound
-        let soundName = config.soundName
-        if soundName == "default" || soundName.isEmpty {
-            alarmSound = .default
-        } else if let filename = mooveSoundFilenameMap[soundName] {
-            alarmSound = .named(filename)
-        } else {
-            alarmSound = .default
-        }
+        let alarmSound: AlertConfiguration.AlertSound = .default
 
         return AlarmManager.AlarmConfiguration.alarm(
             schedule: schedule,

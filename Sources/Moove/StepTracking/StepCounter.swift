@@ -29,6 +29,9 @@ final class StepCounter: NSObject {
     private let magnitudeWindowSize = Constants.StepTracking.stepDetectionWindowSize
 
     private var lastActivityUpdateTime: Date = .distantPast
+    private var recentStepTimestamps: [Date] = []
+    private let sustainedActivityWindow: TimeInterval = 3.0
+    private let sustainedActivityMinSteps: Int = 2
 
     private override init() {
         super.init()
@@ -46,6 +49,7 @@ final class StepCounter: NSObject {
         lastShakeTime = .distantPast
         lastStepTime = .distantPast
         lastActivityUpdateTime = .distantPast
+        recentStepTimestamps = []
 
         startPedometerUpdates()
         startAccelerometerStepDetection()
@@ -127,8 +131,10 @@ final class StepCounter: NSObject {
             let minDistance = Constants.StepTracking.stepMinPeakDistance
             guard now.timeIntervalSince(lastStepTime) > minDistance else { return }
             lastStepTime = now
+            recentStepTimestamps.append(now)
+            trimRecentStepTimestamps(to: now)
+            guard isSustainedWalkingActivity() else { return }
             shakeSteps += 1
-            NotificationCenter.default.post(name: .shakeDetected, object: nil)
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             applyCombinedCount()
         } else if magnitude > shakeThreshold {
@@ -136,11 +142,22 @@ final class StepCounter: NSObject {
             let minInterval = Constants.StepTracking.shakeMinimumInterval
             guard now.timeIntervalSince(lastShakeTime) > minInterval else { return }
             lastShakeTime = now
+            recentStepTimestamps.append(now)
+            trimRecentStepTimestamps(to: now)
+            guard isSustainedWalkingActivity() else { return }
             shakeSteps += 1
-            NotificationCenter.default.post(name: .shakeDetected, object: nil)
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             applyCombinedCount()
         }
+    }
+
+    private func trimRecentStepTimestamps(to now: Date) {
+        let cutoff = now.addingTimeInterval(-sustainedActivityWindow)
+        recentStepTimestamps.removeAll { $0 < cutoff }
+    }
+
+    private func isSustainedWalkingActivity() -> Bool {
+        recentStepTimestamps.count >= sustainedActivityMinSteps
     }
 
     #if DEBUG

@@ -93,17 +93,6 @@ struct SettingsView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             SettingsPaywallPricing()
-
-            Button {
-                subscriptionManager.shouldShowPaywall = true
-            } label: {
-                HStack(spacing: MooveSpacing.sm) {
-                    Image(systemName: "sparkles")
-                    Text("See Plans & Pricing")
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .mooveButton(.primary)
         }
         .padding(.vertical, MooveSpacing.md)
     }
