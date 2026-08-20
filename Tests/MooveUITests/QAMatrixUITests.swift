@@ -156,18 +156,25 @@ final class QAMatrixUITests: XCTestCase {
         save("qa-03-snooze-available")
 
         snoozeChip.tap()
-        XCTAssertFalse(snoozeChip.isEnabled, "Snooze chip must gray out after the single snooze is consumed")
+
+        // The snoozed UX replaces the mission view with a dedicated snooze
+        // screen; the chip disappears from the hierarchy entirely.
+        XCTAssertTrue(app.staticTexts["Snoozed"].waitForExistence(timeout: 5),
+                       "Snoozed cover screen must appear after tapping snooze")
         save("qa-03-snooze-consumed")
 
-        // After the 4s snooze the alarm re-fires; the chip must stay disabled
-        // (snoozeRemaining == 0) and the mission must still be active.
+        // After the 4s snooze the alarm re-fires; the mission view returns
+        // with the chip still present but disabled (snoozeRemaining == 0).
         let deadline = Date().addingTimeInterval(12)
         while Date() < deadline && !app.staticTexts["20 steps remaining"].exists {
             usleep(250_000)
         }
         XCTAssertTrue(app.staticTexts["20 steps remaining"].waitForExistence(timeout: 3),
-                      "Alarm must re-fire after the snooze expires")
-        XCTAssertFalse(snoozeChip.isEnabled, "Snooze must remain disabled after re-fire")
+                       "Alarm must re-fire after the snooze expires")
+        let snoozeChipAfterRefire = app.buttons["0m"]
+        XCTAssertTrue(snoozeChipAfterRefire.waitForExistence(timeout: 3),
+                      "Snooze chip must reappear after re-fire")
+        XCTAssertFalse(snoozeChipAfterRefire.isEnabled, "Snooze must remain disabled after re-fire")
 
         // Only walking terminates the audio now.
         let stepButton = app.buttons["mission.debugStepButton"]
@@ -191,7 +198,7 @@ final class QAMatrixUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Audio Library"].waitForExistence(timeout: 5))
 
         // Bundled section renders the curated library.
-        for name in ["Default Alarm", "Gentle Chime", "Morning Birds", "Urgent", "Digital"] {
+        for name in ["Default Alarm", "Gentle Wake", "Nature Sounds", "Urgent", "Digital"] {
             XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 3),
                           "Bundled sound missing: \(name)")
         }
@@ -206,9 +213,9 @@ final class QAMatrixUITests: XCTestCase {
         save("qa-04-audio-preview")
 
         // Select a different sound → checkmark + dismiss back to Settings.
-        app.staticTexts["Gentle Chime"].firstMatch.tap()
+        app.staticTexts["Gentle Wake"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Gentle Chime"].waitForExistence(timeout: 3),
+        XCTAssertTrue(app.staticTexts["Gentle Wake"].waitForExistence(timeout: 3),
                       "Settings must reflect the newly selected default sound")
         save("qa-04-sound-selected")
     }

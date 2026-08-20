@@ -25,14 +25,17 @@ final class StepCounter: NSObject {
     private var shakeSteps: Int = 0
 
     private var isMissionCompleting = false
+    private var pauseTime: Date?
 
     private var magnitudeBuffer: [Double] = []
     private let magnitudeWindowSize = Constants.StepTracking.stepDetectionWindowSize
 
     private var lastActivityUpdateTime: Date = .distantPast
     private var recentStepTimestamps: [Date] = []
-    private let sustainedActivityWindow: TimeInterval = 4.0
-    private let sustainedActivityMinSteps: Int = 3
+    private let sustainedActivityWindow: TimeInterval = 5.0
+    private let sustainedActivityMinSteps: Int = 4
+
+    private var warmupStepsRemaining: Int = 3
 
     private let stepHaptic = UIImpactFeedbackGenerator(style: .light)
     private let completionHaptic = UIImpactFeedbackGenerator(style: .soft)
@@ -50,11 +53,13 @@ final class StepCounter: NSObject {
         isCounting = true
         isPaused = false
         isMissionCompleting = false
+        pauseTime = nil
         magnitudeBuffer = []
         lastShakeTime = .distantPast
         lastStepTime = .distantPast
         lastActivityUpdateTime = .distantPast
         recentStepTimestamps = []
+        warmupStepsRemaining = 3
 
         startPedometerUpdates()
         startAccelerometerStepDetection()
@@ -64,13 +69,14 @@ final class StepCounter: NSObject {
     }
 
     func syncFromWatch(_ stepsCompleted: Int) {
-        guard isCounting else { return }
+        guard isCounting, !isPaused else { return }
         handleStepUpdate(stepsCompleted)
     }
 
     func stopCounting() {
         isCounting = false
         isPaused = false
+        pauseTime = nil
         pedometer.stopEventUpdates()
         pedometer.stopUpdates()
         motionManager.stopAccelerometerUpdates()
@@ -81,6 +87,7 @@ final class StepCounter: NSObject {
     func pauseCounting() {
         guard isCounting, !isPaused else { return }
         isPaused = true
+        pauseTime = Date()
         pedometer.stopEventUpdates()
         pedometer.stopUpdates()
         motionManager.stopAccelerometerUpdates()
@@ -89,6 +96,10 @@ final class StepCounter: NSObject {
     func resumeCounting() {
         guard isCounting, isPaused else { return }
         isPaused = false
+        pauseTime = nil
+        warmupStepsRemaining = 2
+        recentStepTimestamps = []
+        magnitudeBuffer = []
         startPedometerUpdates()
         startAccelerometerStepDetection()
     }
@@ -98,9 +109,26 @@ final class StepCounter: NSObject {
 
         pedometer.startUpdates(from: Date()) { [weak self] data, error in
             guard let self, let data, error == nil else { return }
-            MainActor.assumeIsolated {
-                self.handleStepUpdate(data.numberOfSteps.intValue)
+            Task { @MainActor in
+                self.handlePedometerUpdate(data.numberOfSteps.intValue)
             }
+        }
+    }
+
+    private func handlePedometerUpdate(_ steps: Int) {
+        guard isCounting, !isPaused else { return }
+        let delta = steps - pedometerSteps
+        if delta > 0 {
+            pedometerSteps = steps
+            let now = Date()
+            for _ in 0..<delta {
+                recentStepTimestamps.append(now)
+            }
+            trimRecentStepTimestamps(to: now)
+            guard isSustainedWalkingActivity() else { return }
+            applyCombinedCount()
+        } else {
+            pedometerSteps = max(pedometerSteps, steps)
         }
     }
 
@@ -122,7 +150,7 @@ final class StepCounter: NSObject {
                 acceleration.y * acceleration.y +
                 acceleration.z * acceleration.z
             )
-            MainActor.assumeIsolated {
+            Task { @MainActor in
                 self.processAccelerometerMagnitude(magnitude)
             }
         }
@@ -147,25 +175,33 @@ final class StepCounter: NSObject {
         let peakThreshold = Constants.StepTracking.stepPeakThreshold
         let shakeThreshold = Constants.StepTracking.shakeAccelerationThreshold
 
+        let now = Date()
+        let minDistance = Constants.StepTracking.stepMinPeakDistance
+
         if isPeak && previous > peakThreshold {
-            let now = Date()
-            let minDistance = Constants.StepTracking.stepMinPeakDistance
             guard now.timeIntervalSince(lastStepTime) > minDistance else { return }
             lastStepTime = now
             recentStepTimestamps.append(now)
             trimRecentStepTimestamps(to: now)
             guard isSustainedWalkingActivity() else { return }
+            if warmupStepsRemaining > 0 {
+                warmupStepsRemaining -= 1
+                return
+            }
             shakeSteps += 1
             stepHaptic.impactOccurred()
             applyCombinedCount()
         } else if magnitude > shakeThreshold {
-            let now = Date()
             let minInterval = Constants.StepTracking.shakeMinimumInterval
             guard now.timeIntervalSince(lastShakeTime) > minInterval else { return }
             lastShakeTime = now
             recentStepTimestamps.append(now)
             trimRecentStepTimestamps(to: now)
             guard isSustainedWalkingActivity() else { return }
+            if warmupStepsRemaining > 0 {
+                warmupStepsRemaining -= 1
+                return
+            }
             shakeSteps += 1
             stepHaptic.impactOccurred()
             applyCombinedCount()

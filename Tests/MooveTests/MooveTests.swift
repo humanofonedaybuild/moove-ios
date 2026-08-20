@@ -101,8 +101,11 @@ final class AlarmConfigTests: XCTestCase {
     func testEquality() {
         let id = UUID()
         let a = AlarmConfig(id: id, label: "Morning", hour: 7, minute: 0)
-        let b = AlarmConfig(id: id, label: "Different", hour: 7, minute: 0)
+        let b = AlarmConfig(id: id, label: "Morning", hour: 7, minute: 0)
         XCTAssertEqual(a, b)
+
+        let c = AlarmConfig(id: id, label: "Different", hour: 7, minute: 0)
+        XCTAssertNotEqual(a, c, "AlarmConfig equality must compare all fields, not just id")
     }
 
     func testClampStepsRoundUp() {

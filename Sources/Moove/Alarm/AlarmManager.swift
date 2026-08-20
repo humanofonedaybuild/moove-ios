@@ -14,6 +14,7 @@ final class AppAlarmManager {
     var missionStartTime: Date?
 
     private var alarmObservationTask: Task<Void, Never>?
+    private var snoozeTimerTask: Task<Void, Never>?
 
     private init() {
         loadAlarms()
@@ -37,9 +38,7 @@ final class AppAlarmManager {
     func updateAlarm(_ config: AlarmConfig) {
         guard let index = alarms.firstIndex(where: { $0.id == config.id }) else { return }
         cancelAlarm(alarms[index])
-        var updatedAlarms = alarms
-        updatedAlarms[index] = config
-        alarms = updatedAlarms
+        alarms[index] = config
         Task { await scheduleAlarm(config) }
         saveAlarms()
     }
@@ -68,9 +67,7 @@ final class AppAlarmManager {
             cancelAlarm(updated)
         }
         guard let index = alarms.firstIndex(where: { $0.id == config.id }) else { return }
-        var updatedAlarms = alarms
-        updatedAlarms[index] = updated
-        alarms = updatedAlarms
+        alarms[index] = updated
         saveAlarms()
     }
 
@@ -147,13 +144,14 @@ final class AppAlarmManager {
         if let active = activeMission, active.id == config.id, alarmState == .missionActive {
             return
         }
-        AudioManager.shared.playAlarmSound(named: config.soundName)
         try? AlarmManager.shared.stop(id: config.id)
         if StepCounter.shared.isPaused && activeMission?.id == config.id {
             StepCounter.shared.resumeCounting()
         } else {
             StepCounter.shared.beginCounting(downFrom: config.stepGoal)
         }
+        AudioManager.shared.configureAudioSession()
+        AudioManager.shared.playAlarmSound(named: config.soundName)
         activeMission = config
         alarmState = .missionActive
         missionStartTime = Date()
@@ -176,6 +174,8 @@ final class AppAlarmManager {
         snoozedDuration = nil
         missionStartTime = nil
         alarmState = .idle
+        snoozeTimerTask?.cancel()
+        snoozeTimerTask = nil
         StepCounter.shared.stopCounting()
         AudioManager.shared.stopAlarmSound()
         AlarmMissionActivity.shared.endActivity()
@@ -209,19 +209,17 @@ final class AppAlarmManager {
         AlarmMissionActivity.shared.endActivity()
 
         if let index = alarms.firstIndex(where: { $0.id == updated.id }) {
-            var updatedAlarms = alarms
-            updatedAlarms[index].snoozeRemaining = updated.snoozeRemaining
-            alarms = updatedAlarms
+            alarms[index].snoozeRemaining = updated.snoozeRemaining
         }
 
-        let fireDate = Date().addingTimeInterval(duration)
-        var snoozeConfig = updated
-        snoozeConfig.weekdays = []
-        snoozeConfig.isEnabled = true
+        snoozeTimerTask = Task { @MainActor in
+            let fireDate = Date().addingTimeInterval(duration)
+            var snoozeConfig = updated
+            snoozeConfig.weekdays = []
+            snoozeConfig.isEnabled = true
 
-        let snoozeId = snoozeConfig.id
+            let snoozeId = snoozeConfig.id
 
-        Task { @MainActor in
             let snoozeAlarmConfig: AlarmManager.AlarmConfiguration<MooveAlarmMetadata> = .makeSnooze(
                 for: snoozeConfig,
                 fireDate: fireDate

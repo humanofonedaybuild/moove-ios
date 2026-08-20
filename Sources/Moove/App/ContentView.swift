@@ -183,7 +183,7 @@ struct AlarmListView: View {
     private var listContent: some View {
         List {
             ForEach(alarmManager.alarms) { config in
-                AlarmRowView(configId: config.id)
+                AlarmRowView(config: config)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(
@@ -215,57 +215,49 @@ struct AlarmListView: View {
 }
 
 struct AlarmRowView: View {
-    let configId: UUID
+    let config: AlarmConfig
 
     @Environment(AppAlarmManager.self)
     private var alarmManager
 
-    private var config: AlarmConfig? {
-        alarmManager.alarms.first { $0.id == configId }
-    }
-
     var body: some View {
-        if let config {
-            HStack(spacing: MooveSpacing.lg) {
-                VStack(alignment: .leading, spacing: MooveSpacing.xs) {
-                    Text(config.timeString)
-                        .font(MooveFont.timePicker(size: 34))
-                        .foregroundStyle(config.isEnabled ? Color.espresso : Color.taupe)
+        HStack(spacing: MooveSpacing.lg) {
+            VStack(alignment: .leading, spacing: MooveSpacing.xs) {
+                Text(config.timeString)
+                    .font(MooveFont.timePicker(size: 34))
+                    .foregroundStyle(config.isEnabled ? Color.espresso : Color.taupe)
 
-                    Text(config.label)
-                        .font(MooveFont.headline())
-                        .foregroundStyle(config.isEnabled ? Color.espresso : Color.taupe)
+                Text(config.label)
+                    .font(MooveFont.headline())
+                    .foregroundStyle(config.isEnabled ? Color.espresso : Color.taupe)
 
-                    HStack(spacing: MooveSpacing.md) {
-                        Text(config.weekdaySummary)
+                HStack(spacing: MooveSpacing.md) {
+                    Text(config.weekdaySummary)
 
-                        HStack(spacing: MooveSpacing.xs) {
-                            Image(systemName: "figure.walk")
-                            Text("\(config.stepGoal)")
-                        }
+                    HStack(spacing: MooveSpacing.xs) {
+                        Image(systemName: "figure.walk")
+                        Text("\(config.stepGoal)")
                     }
-                    .font(MooveFont.caption())
-                    .foregroundStyle(Color.taupe)
                 }
-
-                Spacer(minLength: 0)
-
-                Toggle(isOn: toggleBinding) { }
-                    .labelsHidden()
-                    .tint(.terracotta)
+                .font(MooveFont.caption())
+                .foregroundStyle(Color.taupe)
             }
-            .mooveCard(padding: MooveSpacing.lg)
-            .opacity(config.isEnabled ? 1 : 0.7)
+
+            Spacer(minLength: 0)
+
+            Toggle(isOn: toggleBinding) { }
+                .labelsHidden()
+                .tint(.terracotta)
         }
+        .mooveCard(padding: MooveSpacing.lg)
+        .opacity(config.isEnabled ? 1 : 0.7)
     }
 
     private var toggleBinding: Binding<Bool> {
         Binding(
-            get: { config?.isEnabled ?? false },
+            get: { config.isEnabled },
             set: { _ in
-                if let config {
-                    alarmManager.toggleAlarm(config)
-                }
+                alarmManager.toggleAlarm(config)
             }
         )
     }

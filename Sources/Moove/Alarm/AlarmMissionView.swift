@@ -71,12 +71,6 @@ struct AlarmMissionView: View {
                 }
             }
 
-            StepCounterCard(
-                stepsRemaining: max(stepCounter.targetStepCount - stepCounter.currentStepCount, 0),
-                stepGoal: stepCounter.targetStepCount
-            )
-            .opacity(0.5)
-
             Text("Step counter paused during snooze")
                 .font(MooveFont.caption())
                 .foregroundStyle(Color.taupe)

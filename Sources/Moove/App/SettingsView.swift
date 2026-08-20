@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var settings = AppSettings.load()
     @State private var showResetConfirmation = false
     @State private var showingSoundPicker = false
+    @State private var showingPaywall = false
     @Environment(AppAlarmManager.self) private var alarmManager
 
     var body: some View {
@@ -36,6 +37,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showingSoundPicker) {
                 SoundPickerView(selectedSound: $settings.defaultSoundName)
             }
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView(mode: .optional)
+            }
             .alert("Reset All Alarms", isPresented: $showResetConfirmation) {
                 Button("Reset", role: .destructive) { resetAllAlarms() }
                 Button("Cancel", role: .cancel) {}
@@ -58,8 +62,26 @@ struct SettingsView: View {
             .mooveListRow()
 
             if !subscriptionManager.isPremium {
-                premiumUpsellContent
-                    .listRowBackground(Color.cream)
+                Button {
+                    showingPaywall = true
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: MooveSpacing.xs) {
+                            Text("All of Moove. Free for 7 days.")
+                                .font(MooveFont.subheadline(weight: .semibold))
+                                .foregroundStyle(Color.espresso)
+                            Text("View plans & pricing")
+                                .font(MooveFont.caption())
+                                .foregroundStyle(Color.terracotta)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(MooveFont.caption())
+                            .foregroundStyle(Color.taupe)
+                    }
+                    .padding(.vertical, MooveSpacing.sm)
+                }
+                .mooveListRow()
             }
 
             Button {
@@ -73,28 +95,6 @@ struct SettingsView: View {
             Text("Moove Premium")
                 .mooveEyebrow()
         }
-    }
-
-    private var premiumUpsellContent: some View {
-        VStack(alignment: .leading, spacing: MooveSpacing.md) {
-            VStack(spacing: 0) {
-                Text("All of Moove.")
-                    .font(MooveFont.title())
-                    .foregroundStyle(Color.espresso)
-                Text("Free for 7 days.")
-                    .font(MooveFont.displayItalic(size: 34))
-                    .foregroundStyle(Color.terracotta)
-            }
-
-            Text("Your trial includes every feature. Subscribe to keep it all — for as long as you're subscribed.")
-                .font(MooveFont.caption())
-                .foregroundStyle(Color.taupe)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-            SettingsPaywallPricing()
-        }
-        .padding(.vertical, MooveSpacing.md)
     }
 
     private var defaultsSection: some View {
@@ -320,80 +320,5 @@ private struct PermissionRow: View {
             .foregroundStyle(Color.espresso)
         }
         .mooveListRow()
-    }
-}
-
-/// StoreKit 2 pricing for Settings -> Moove Premium (MOO-123).
-/// Same pattern as PaywallView: fetch, loading, prices, retry.
-private struct SettingsPaywallPricing: View {
-    @Environment(SubscriptionManager.self)
-    private var subscriptionManager
-
-    @State private var hasCompletedInitialFetch = false
-
-    var body: some View {
-        Group {
-            if subscriptionManager.monthlyProduct != nil || subscriptionManager.yearlyProduct != nil {
-                VStack(spacing: MooveSpacing.sm) {
-                    if let monthly = subscriptionManager.monthlyProduct {
-                        priceRow(title: "Monthly", price: "\(monthly.localizedPriceString) / month")
-                            .accessibilityIdentifier("settings.pricing.monthly")
-                    }
-                    if let yearly = subscriptionManager.yearlyProduct {
-                        priceRow(title: "Yearly", price: "\(yearly.localizedPriceString) / year")
-                            .accessibilityIdentifier("settings.pricing.yearly")
-                    }
-                }
-                .accessibilityIdentifier("settings.pricing.loaded")
-            } else if subscriptionManager.isLoadingProducts {
-                ProgressView()
-                    .tint(.espresso)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, MooveSpacing.sm)
-                    .accessibilityIdentifier("settings.pricing.loading")
-            } else if hasCompletedInitialFetch && subscriptionManager.productsLoadFailed {
-                VStack(spacing: MooveSpacing.sm) {
-                    Text("Pricing unavailable")
-                        .font(MooveFont.caption())
-                        .foregroundStyle(Color.taupe)
-                        .frame(maxWidth: .infinity)
-
-                    Button {
-                        Task { await subscriptionManager.fetchProducts() }
-                    } label: {
-                        Text("Retry")
-                            .font(MooveFont.caption())
-                            .foregroundStyle(Color.terracotta)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 36)
-                    }
-                    .accessibilityIdentifier("settings.pricing.retry")
-                }
-            } else {
-                ProgressView()
-                    .tint(.espresso)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, MooveSpacing.sm)
-                    .accessibilityIdentifier("settings.pricing.loading")
-            }
-        }
-        .task {
-            await subscriptionManager.fetchProducts()
-            await subscriptionManager.refreshSubscriptionState()
-            hasCompletedInitialFetch = true
-        }
-    }
-
-    private func priceRow(title: String, price: String) -> some View {
-        HStack {
-            Text(title)
-                .font(MooveFont.subheadline(weight: .medium))
-                .foregroundStyle(Color.espresso)
-            Spacer()
-            Text(price)
-                .font(MooveFont.subheadline())
-                .foregroundStyle(Color.taupe)
-        }
-        .padding(.vertical, MooveSpacing.xs)
     }
 }

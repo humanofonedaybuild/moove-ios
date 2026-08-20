@@ -105,7 +105,10 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(snoozeChip.waitForExistence(timeout: 5))
         snoozeChip.tap()
 
-        XCTAssertFalse(snoozeChip.isEnabled, "Snooze button must be disabled after the single snooze is used")
-        save("07-mission-snooze-disabled")
+        // The snoozed UX replaces the mission view with a dedicated snooze
+        // screen; the chip disappears from the hierarchy entirely.
+        XCTAssertTrue(app.staticTexts["Snoozed"].waitForExistence(timeout: 5),
+                      "Snoozed cover screen must appear after tapping snooze")
+        save("07-mission-snoozed")
     }
 }

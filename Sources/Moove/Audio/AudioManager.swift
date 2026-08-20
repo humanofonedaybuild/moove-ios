@@ -9,6 +9,7 @@ final class AudioManager: NSObject {
     private var audioPlayer: AVAudioPlayer?
     private let audioSession = AVAudioSession.sharedInstance()
     private var wasInterrupted = false
+    private var currentSoundName: String?
 
     private override init() {
         super.init()
@@ -46,15 +47,20 @@ final class AudioManager: NSObject {
     }
 
     func configureAudioSession() {
-        try? audioSession.setCategory(
-            .playback,
-            mode: .default,
-            options: [.mixWithOthers, .duckOthers]
-        )
-        try? audioSession.setActive(true)
+        do {
+            try audioSession.setCategory(
+                .playback,
+                mode: .default,
+                options: [.mixWithOthers, .duckOthers]
+            )
+            try audioSession.setActive(true)
+        } catch {
+            print("AudioManager: failed to configure audio session: \(error.localizedDescription)")
+        }
     }
 
     func playAlarmSound(named soundName: String, preview: Bool = false) {
+        currentSoundName = soundName
         guard let url = AudioLibrary.shared.url(for: soundName) else {
             if let fallbackUrl = AudioLibrary.shared.url(for: "default") {
                 playSoundFromURL(fallbackUrl, preview: preview)
@@ -68,7 +74,7 @@ final class AudioManager: NSObject {
         if audioPlayer?.isPlaying == true {
             audioPlayer?.stop()
         }
-        try? audioSession.setActive(true)
+        configureAudioSession()
         do {
             audioPlayer = try AVAudioPlayer(contentsOf: url)
         } catch {
@@ -93,6 +99,7 @@ final class AudioManager: NSObject {
     func stopAlarmSound() {
         audioPlayer?.stop()
         audioPlayer = nil
+        currentSoundName = nil
         wasInterrupted = false
         try? audioSession.setActive(false, options: .notifyOthersOnDeactivation)
     }
