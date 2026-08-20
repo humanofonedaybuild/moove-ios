@@ -1,4 +1,5 @@
 import AppIntents
+import AlarmKit
 import MooveKit
 
 struct StopAlarmIntent: AppIntent, LiveActivityIntent {
@@ -23,6 +24,11 @@ struct StopAlarmIntent: AppIntent, LiveActivityIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
+        if let alarmID = alarmIdentifier,
+           let uuid = UUID(uuidString: alarmID) {
+            try? AlarmManager.shared.stop(id: uuid)
+        }
+
         if AppAlarmManager.shared.alarmState == .missionActive,
            let active = AppAlarmManager.shared.activeMission,
            alarmIdentifier == active.id.uuidString || alarmIdentifier == nil {
