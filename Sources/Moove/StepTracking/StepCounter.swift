@@ -31,8 +31,11 @@ final class StepCounter: NSObject {
 
     private var lastActivityUpdateTime: Date = .distantPast
     private var recentStepTimestamps: [Date] = []
-    private let sustainedActivityWindow: TimeInterval = 3.0
-    private let sustainedActivityMinSteps: Int = 2
+    private let sustainedActivityWindow: TimeInterval = 4.0
+    private let sustainedActivityMinSteps: Int = 3
+
+    private let stepHaptic = UIImpactFeedbackGenerator(style: .light)
+    private let completionHaptic = UIImpactFeedbackGenerator(style: .soft)
 
     private override init() {
         super.init()
@@ -95,8 +98,8 @@ final class StepCounter: NSObject {
 
         pedometer.startUpdates(from: Date()) { [weak self] data, error in
             guard let self, let data, error == nil else { return }
-            Task { @MainActor [weak self] in
-                self?.handleStepUpdate(data.numberOfSteps.intValue)
+            MainActor.assumeIsolated {
+                self.handleStepUpdate(data.numberOfSteps.intValue)
             }
         }
     }
@@ -109,18 +112,18 @@ final class StepCounter: NSObject {
 
     private func startAccelerometerStepDetection() {
         guard motionManager.isAccelerometerAvailable else { return }
-        motionManager.accelerometerUpdateInterval = Constants.StepTracking.pedometerUpdateInterval
+        motionManager.accelerometerUpdateInterval = 0.05
 
         motionManager.startAccelerometerUpdates(to: .main) { [weak self] data, error in
-            guard let data, error == nil else { return }
+            guard let self, let data, error == nil else { return }
             let acceleration = data.acceleration
             let magnitude = sqrt(
                 acceleration.x * acceleration.x +
                 acceleration.y * acceleration.y +
                 acceleration.z * acceleration.z
             )
-            Task { @MainActor [weak self] in
-                self?.processAccelerometerMagnitude(magnitude)
+            MainActor.assumeIsolated {
+                self.processAccelerometerMagnitude(magnitude)
             }
         }
     }
@@ -153,7 +156,7 @@ final class StepCounter: NSObject {
             trimRecentStepTimestamps(to: now)
             guard isSustainedWalkingActivity() else { return }
             shakeSteps += 1
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            stepHaptic.impactOccurred()
             applyCombinedCount()
         } else if magnitude > shakeThreshold {
             let now = Date()
@@ -164,7 +167,7 @@ final class StepCounter: NSObject {
             trimRecentStepTimestamps(to: now)
             guard isSustainedWalkingActivity() else { return }
             shakeSteps += 1
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            stepHaptic.impactOccurred()
             applyCombinedCount()
         }
     }
@@ -203,7 +206,7 @@ final class StepCounter: NSObject {
             motionManager.stopAccelerometerUpdates()
             motionUpdateTask?.cancel()
             motionUpdateTask = nil
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            completionHaptic.impactOccurred()
             AlarmMissionActivity.shared.updateActivity(stepsRemaining: 0)
             AppAlarmManager.shared.completeMission()
         }

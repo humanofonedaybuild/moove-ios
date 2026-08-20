@@ -17,6 +17,8 @@ struct AlarmMissionView: View {
 
             if alarmManager.alarmState == .stopped {
                 completionView
+            } else if alarmManager.alarmState == .snoozed {
+                snoozedView
             } else {
                 missionActiveView
             }
@@ -26,11 +28,6 @@ struct AlarmMissionView: View {
         .padding(.horizontal, MooveSpacing.xxxl)
         .mooveScreenBackground()
         .onAppear {
-            // If the mission was already completed when this view was presented
-            // (e.g. the cover opened after state flipped to .stopped), the
-            // onChange below never fires and the completion button would stay
-            // hidden. Flip the flag on appear in that case so the completion
-            // UI — and its "Start Your Day" button — is always reachable.
             if alarmManager.alarmState == .stopped, !completionAnimating {
                 triggerCompletionHaptic()
                 withAnimation(.spring(response: MooveAnimationDuration.celebration, dampingFraction: 0.5)) {
@@ -45,6 +42,44 @@ struct AlarmMissionView: View {
                     completionAnimating = true
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var snoozedView: some View {
+        VStack(spacing: MooveSpacing.xxxl) {
+            Image(systemName: "moon.zzz.fill")
+                .font(.system(size: 48, weight: .medium))
+                .foregroundStyle(Color.taupe)
+                .frame(width: 96, height: 96)
+                .background(Circle().fill(Color.taupe.opacity(0.1)))
+                .overlay(Circle().stroke(Color.hairline, lineWidth: 1))
+
+            VStack(spacing: MooveSpacing.sm) {
+                Text("Snoozed")
+                    .font(MooveFont.largeTitle())
+                    .foregroundStyle(Color.espresso)
+
+                if let duration = alarmManager.snoozedDuration {
+                    Text("Alarm will ring again in \(Int(duration / 60)) minutes")
+                        .font(MooveFont.subheadline())
+                        .foregroundStyle(Color.taupe)
+                } else {
+                    Text("Alarm will ring again soon")
+                        .font(MooveFont.subheadline())
+                        .foregroundStyle(Color.taupe)
+                }
+            }
+
+            StepCounterCard(
+                stepsRemaining: max(stepCounter.targetStepCount - stepCounter.currentStepCount, 0),
+                stepGoal: stepCounter.targetStepCount
+            )
+            .opacity(0.5)
+
+            Text("Step counter paused during snooze")
+                .font(MooveFont.caption())
+                .foregroundStyle(Color.taupe)
         }
     }
 

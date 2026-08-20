@@ -179,11 +179,15 @@ final class AudioLibrary {
         }
     }
 
-    func alarmKitSoundName(for soundName: String) -> String {
-        if let builtIn = builtInSounds.first(where: { $0.id == soundName }) {
-            return builtIn.filename
-        }
-        return builtInSounds.first(where: { $0.id == "default" })?.filename ?? "default_alarm"
+    nonisolated static func alarmKitSoundName(for soundName: String) -> String {
+        let mapping: [String: String] = [
+            "default": "default_alarm",
+            "gentle": "gentle_wake",
+            "nature": "nature",
+            "urgent": "urgent",
+            "digital": "digital",
+        ]
+        return mapping[soundName] ?? "default_alarm"
     }
 
     private static let defaultBuiltInSounds: [Sound] = [

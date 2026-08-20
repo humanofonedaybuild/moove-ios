@@ -24,17 +24,45 @@ extension AlarmManager.AlarmConfiguration {
             : .weekly(weekdays)
         let schedule = Alarm.Schedule.relative(.init(time: time, repeats: recurrence))
 
-        let presentation = AlarmPresentation(
-            alert: AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: config.label),
-                secondaryButton: AlarmButton(
-                    text: "Start Walking",
-                    textColor: .cream,
-                    systemImageName: "figure.walk"
-                ),
-                secondaryButtonBehavior: .custom
+        let presentation: AlarmPresentation
+        if #available(iOS 26.1, *) {
+            presentation = AlarmPresentation(
+                alert: AlarmPresentation.Alert(
+                    title: LocalizedStringResource(stringLiteral: config.label),
+                    secondaryButton: AlarmButton(
+                        text: "Start Walking",
+                        textColor: .cream,
+                        systemImageName: "figure.walk"
+                    ),
+                    secondaryButtonBehavior: .custom
+                )
             )
-        )
+        } else {
+            let stopButtonText: LocalizedStringResource
+            let stopButtonSystemImage: String
+            if config.snoozeEnabled {
+                stopButtonText = "Snooze"
+                stopButtonSystemImage = "moon.zzz.fill"
+            } else {
+                stopButtonText = "Start Walking"
+                stopButtonSystemImage = "figure.walk"
+            }
+            presentation = AlarmPresentation(
+                alert: AlarmPresentation.Alert(
+                    title: LocalizedStringResource(stringLiteral: config.label),
+                    stopButton: AlarmButton(
+                        text: stopButtonText,
+                        textColor: .cream,
+                        systemImageName: stopButtonSystemImage
+                    ),
+                    secondaryButton: AlarmButton(
+                        text: "Start Walking",
+                        textColor: .cream,
+                        systemImageName: "figure.walk"
+                    )
+                )
+            )
+        }
 
         let attributes = AlarmAttributes<MooveAlarmMetadata>(
             presentation: presentation,
@@ -42,9 +70,7 @@ extension AlarmManager.AlarmConfiguration {
             tintColor: Color.terracotta
         )
 
-        let alarmSound: AlertConfiguration.AlertSound = .named(
-            AudioLibrary.shared.alarmKitSoundName(for: config.soundName)
-        )
+        let alarmSound: AlertConfiguration.AlertSound = .default
 
         return AlarmManager.AlarmConfiguration.alarm(
             schedule: schedule,
@@ -73,17 +99,37 @@ extension AlarmManager.AlarmConfiguration {
 
         let schedule = Alarm.Schedule.fixed(fireDate)
 
-        let presentation = AlarmPresentation(
-            alert: AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: config.label),
-                secondaryButton: AlarmButton(
-                    text: "Start Walking",
-                    textColor: .cream,
-                    systemImageName: "figure.walk"
-                ),
-                secondaryButtonBehavior: .custom
+        let presentation: AlarmPresentation
+        if #available(iOS 26.1, *) {
+            presentation = AlarmPresentation(
+                alert: AlarmPresentation.Alert(
+                    title: LocalizedStringResource(stringLiteral: config.label),
+                    secondaryButton: AlarmButton(
+                        text: "Start Walking",
+                        textColor: .cream,
+                        systemImageName: "figure.walk"
+                    ),
+                    secondaryButtonBehavior: .custom
+                )
             )
-        )
+        } else {
+            presentation = AlarmPresentation(
+                alert: AlarmPresentation.Alert(
+                    title: LocalizedStringResource(stringLiteral: config.label),
+                    stopButton: AlarmButton(
+                        text: "Start Walking",
+                        textColor: .cream,
+                        systemImageName: "figure.walk"
+                    ),
+                    secondaryButton: AlarmButton(
+                        text: "Start Walking",
+                        textColor: .cream,
+                        systemImageName: "figure.walk"
+                    ),
+                    secondaryButtonBehavior: .custom
+                )
+            )
+        }
 
         let attributes = AlarmAttributes<MooveAlarmMetadata>(
             presentation: presentation,
@@ -91,9 +137,7 @@ extension AlarmManager.AlarmConfiguration {
             tintColor: Color.terracotta
         )
 
-        let alarmSound: AlertConfiguration.AlertSound = .named(
-            AudioLibrary.shared.alarmKitSoundName(for: config.soundName)
-        )
+        let alarmSound: AlertConfiguration.AlertSound = .default
 
         return AlarmManager.AlarmConfiguration.alarm(
             schedule: schedule,

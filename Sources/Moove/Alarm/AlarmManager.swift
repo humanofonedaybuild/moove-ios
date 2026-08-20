@@ -147,13 +147,13 @@ final class AppAlarmManager {
         if let active = activeMission, active.id == config.id, alarmState == .missionActive {
             return
         }
+        AudioManager.shared.playAlarmSound(named: config.soundName)
         try? AlarmManager.shared.stop(id: config.id)
         if StepCounter.shared.isPaused && activeMission?.id == config.id {
             StepCounter.shared.resumeCounting()
         } else {
             StepCounter.shared.beginCounting(downFrom: config.stepGoal)
         }
-        AudioManager.shared.playAlarmSound(named: config.soundName)
         activeMission = config
         alarmState = .missionActive
         missionStartTime = Date()
@@ -219,15 +219,16 @@ final class AppAlarmManager {
         snoozeConfig.weekdays = []
         snoozeConfig.isEnabled = true
 
-        let snoozeAlarmConfig: AlarmManager.AlarmConfiguration<MooveAlarmMetadata> = .makeSnooze(
-            for: snoozeConfig,
-            fireDate: fireDate
-        )
+        let snoozeId = snoozeConfig.id
 
         Task { @MainActor in
+            let snoozeAlarmConfig: AlarmManager.AlarmConfiguration<MooveAlarmMetadata> = .makeSnooze(
+                for: snoozeConfig,
+                fireDate: fireDate
+            )
             do {
                 _ = try await AlarmManager.shared.schedule(
-                    id: snoozeConfig.id,
+                    id: snoozeId,
                     configuration: snoozeAlarmConfig
                 )
             } catch {
