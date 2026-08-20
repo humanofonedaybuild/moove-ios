@@ -12,6 +12,7 @@ final class StepCounter: NSObject {
     var currentStepCount: Int = 0
     var targetStepCount: Int = 30
     var isCounting: Bool = false
+    var isPaused: Bool = false
     var stepProgress: Double = 0.0
 
     private let pedometer = CMPedometer()
@@ -44,6 +45,7 @@ final class StepCounter: NSObject {
         currentStepCount = 0
         stepProgress = 0.0
         isCounting = true
+        isPaused = false
         isMissionCompleting = false
         magnitudeBuffer = []
         lastShakeTime = .distantPast
@@ -65,11 +67,27 @@ final class StepCounter: NSObject {
 
     func stopCounting() {
         isCounting = false
+        isPaused = false
         pedometer.stopEventUpdates()
         pedometer.stopUpdates()
         motionManager.stopAccelerometerUpdates()
         motionUpdateTask?.cancel()
         motionUpdateTask = nil
+    }
+
+    func pauseCounting() {
+        guard isCounting, !isPaused else { return }
+        isPaused = true
+        pedometer.stopEventUpdates()
+        pedometer.stopUpdates()
+        motionManager.stopAccelerometerUpdates()
+    }
+
+    func resumeCounting() {
+        guard isCounting, isPaused else { return }
+        isPaused = false
+        startPedometerUpdates()
+        startAccelerometerStepDetection()
     }
 
     private func startPedometerUpdates() {
@@ -84,7 +102,7 @@ final class StepCounter: NSObject {
     }
 
     private func handleStepUpdate(_ steps: Int) {
-        guard isCounting else { return }
+        guard isCounting, !isPaused else { return }
         pedometerSteps = max(pedometerSteps, steps)
         applyCombinedCount()
     }
@@ -108,7 +126,7 @@ final class StepCounter: NSObject {
     }
 
     private func processAccelerometerMagnitude(_ magnitude: Double) {
-        guard isCounting else { return }
+        guard isCounting, !isPaused else { return }
 
         magnitudeBuffer.append(magnitude)
         if magnitudeBuffer.count > magnitudeWindowSize {
@@ -169,7 +187,7 @@ final class StepCounter: NSObject {
     #endif
 
     private func applyCombinedCount() {
-        guard isCounting, !isMissionCompleting else { return }
+        guard isCounting, !isPaused, !isMissionCompleting else { return }
 
         currentStepCount = min(pedometerSteps + shakeSteps, targetStepCount)
         stepProgress = Double(currentStepCount) / Double(targetStepCount)

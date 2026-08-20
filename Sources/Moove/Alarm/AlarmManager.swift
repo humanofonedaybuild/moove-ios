@@ -198,7 +198,7 @@ final class AppAlarmManager {
         alarmState = .snoozed
 
         AudioManager.shared.stopAlarmSound()
-        StepCounter.shared.stopCounting()
+        StepCounter.shared.pauseCounting()
         AlarmMissionActivity.shared.endActivity()
 
         if let index = alarms.firstIndex(where: { $0.id == updated.id }) {

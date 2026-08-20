@@ -24,24 +24,9 @@ extension AlarmManager.AlarmConfiguration {
             : .weekly(weekdays)
         let schedule = Alarm.Schedule.relative(.init(time: time, repeats: recurrence))
 
-        let stopButtonText: LocalizedStringResource
-        let stopButtonSystemImage: String
-        if config.snoozeEnabled {
-            stopButtonText = "Snooze"
-            stopButtonSystemImage = "moon.zzz.fill"
-        } else {
-            stopButtonText = "Start Walking"
-            stopButtonSystemImage = "figure.walk"
-        }
-
         let presentation = AlarmPresentation(
             alert: AlarmPresentation.Alert(
                 title: LocalizedStringResource(stringLiteral: config.label),
-                stopButton: AlarmButton(
-                    text: stopButtonText,
-                    textColor: .cream,
-                    systemImageName: stopButtonSystemImage
-                ),
                 secondaryButton: AlarmButton(
                     text: "Start Walking",
                     textColor: .cream,
@@ -57,7 +42,9 @@ extension AlarmManager.AlarmConfiguration {
             tintColor: Color.terracotta
         )
 
-        let alarmSound: AlertConfiguration.AlertSound = .default
+        let alarmSound: AlertConfiguration.AlertSound = .named(
+            AudioLibrary.shared.alarmKitSoundName(for: config.soundName)
+        )
 
         return AlarmManager.AlarmConfiguration.alarm(
             schedule: schedule,
