@@ -1,4 +1,5 @@
 import AppIntents
+import AlarmKit
 import MooveKit
 
 struct StartWalkingIntent: AppIntent, LiveActivityIntent {
@@ -29,6 +30,7 @@ struct StartWalkingIntent: AppIntent, LiveActivityIntent {
            let uuid = UUID(uuidString: alarmID),
            let found = AppAlarmManager.shared.alarms.first(where: { $0.id == uuid }) {
             config = found
+            try? AlarmManager.shared.stop(id: uuid)
         } else {
             config = AlarmConfig(stepGoal: stepsRequired)
         }
