@@ -144,7 +144,7 @@ xcodebuild archive \
   -authenticationKeyID "$ASC_KEY_ID" \
   -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
   DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-  | xcpretty && exit ${PIPESTATUS[0]}
+  2>&1 | xcpretty; ARCHIVE_EXIT=${PIPESTATUS[0]}; if [ $ARCHIVE_EXIT -ne 0 ]; then exit $ARCHIVE_EXIT; fi
 
 if [ ! -d "$ARCHIVE_PATH" ]; then
   echo "ERROR: archive was not produced at $ARCHIVE_PATH" >&2
@@ -170,7 +170,7 @@ xcodebuild -exportArchive \
   -authenticationKeyPath "$ASC_KEY_PATH" \
   -authenticationKeyID "$ASC_KEY_ID" \
   -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-  | xcpretty && exit ${PIPESTATUS[0]}
+  2>&1 | xcpretty; EXPORT_EXIT=${PIPESTATUS[0]}; if [ $EXPORT_EXIT -ne 0 ]; then exit $EXPORT_EXIT; fi
 
 if [ ! -f "$IPA_PATH" ]; then
   echo "ERROR: IPA was not produced at $IPA_PATH" >&2
