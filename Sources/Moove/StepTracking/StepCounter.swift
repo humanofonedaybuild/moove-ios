@@ -197,7 +197,12 @@ final class StepCounter: NSObject {
 
         if currentStepCount >= targetStepCount {
             isMissionCompleting = true
-            stopCounting()
+            isCounting = false
+            pedometer.stopEventUpdates()
+            pedometer.stopUpdates()
+            motionManager.stopAccelerometerUpdates()
+            motionUpdateTask?.cancel()
+            motionUpdateTask = nil
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             AlarmMissionActivity.shared.updateActivity(stepsRemaining: 0)
             AppAlarmManager.shared.completeMission()

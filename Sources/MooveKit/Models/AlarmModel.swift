@@ -79,6 +79,15 @@ public struct AlarmConfig: Codable, Sendable, Equatable, Identifiable {
 
     public static func == (lhs: AlarmConfig, rhs: AlarmConfig) -> Bool {
         lhs.id == rhs.id
+            && lhs.label == rhs.label
+            && lhs.hour == rhs.hour
+            && lhs.minute == rhs.minute
+            && lhs.weekdays == rhs.weekdays
+            && lhs.isEnabled == rhs.isEnabled
+            && lhs.stepGoal == rhs.stepGoal
+            && lhs.snoozeRemaining == rhs.snoozeRemaining
+            && lhs.snoozeEnabled == rhs.snoozeEnabled
+            && lhs.soundName == rhs.soundName
     }
 
     public static func clampSteps(_ steps: Int) -> Int {
