@@ -201,6 +201,9 @@ final class AppAlarmManager {
         activeMission = updated
         alarmState = .snoozed
 
+        if let activeId = activeMission?.id {
+            try? AlarmManager.shared.stop(id: activeId)
+        }
         AudioManager.shared.stopAlarmSound()
         StepCounter.shared.pauseCounting()
         AlarmMissionActivity.shared.endActivity()
@@ -212,18 +215,24 @@ final class AppAlarmManager {
         }
 
         let fireDate = Date().addingTimeInterval(duration)
-        let fireComponents = Calendar.current.dateComponents([.hour, .minute], from: fireDate)
-        let snoozeHour = fireComponents.hour ?? 0
-        let snoozeMinute = fireComponents.minute ?? 0
-
         var snoozeConfig = updated
-        snoozeConfig.hour = snoozeHour
-        snoozeConfig.minute = snoozeMinute
         snoozeConfig.weekdays = []
         snoozeConfig.isEnabled = true
 
+        let snoozeAlarmConfig: AlarmManager.AlarmConfiguration<MooveAlarmMetadata> = .makeSnooze(
+            for: snoozeConfig,
+            fireDate: fireDate
+        )
+
         Task { @MainActor in
-            await scheduleAlarm(snoozeConfig)
+            do {
+                _ = try await AlarmManager.shared.schedule(
+                    id: snoozeConfig.id,
+                    configuration: snoozeAlarmConfig
+                )
+            } catch {
+                print("AlarmKit: failed to schedule snooze alarm: \(error.localizedDescription)")
+            }
         }
 
         saveAlarms()
