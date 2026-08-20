@@ -147,12 +147,16 @@ final class AppAlarmManager {
         if let active = activeMission, active.id == config.id, alarmState == .missionActive {
             return
         }
-        AudioManager.shared.playAlarmSound(named: config.soundName)
         try? AlarmManager.shared.stop(id: config.id)
+        if StepCounter.shared.isPaused && activeMission?.id == config.id {
+            StepCounter.shared.resumeCounting()
+        } else {
+            StepCounter.shared.beginCounting(downFrom: config.stepGoal)
+        }
+        AudioManager.shared.playAlarmSound(named: config.soundName)
         activeMission = config
         alarmState = .missionActive
         missionStartTime = Date()
-        StepCounter.shared.beginCounting(downFrom: config.stepGoal)
         WatchSessionManager.shared.sendMissionStart(stepsRequired: config.stepGoal)
         AlarmMissionActivity.shared.startActivity(stepsRequired: config.stepGoal)
     }
@@ -313,17 +317,19 @@ final class AppAlarmManager {
                                 self.fireAlarm(snoozedConfig)
                                 self.cancelAlarm(snoozedConfig)
                             }
-                        } else if let config = self.alarms.first(where: { $0.id == alarm.id }) {
-                            if SubscriptionManager.shared.canUseAlarms {
+                        } else if self.alarmState == .idle || self.alarmState == .firing {
+                            if let config = self.alarms.first(where: { $0.id == alarm.id }) {
+                                if SubscriptionManager.shared.canUseAlarms {
+                                    self.alarmState = .firing
+                                    self.fireAlarm(config)
+                                } else {
+                                    self.cancelAlarm(config)
+                                    SubscriptionManager.shared.presentRequiredPaywall()
+                                }
+                            } else if SubscriptionManager.shared.canUseAlarms {
                                 self.alarmState = .firing
-                                self.fireAlarm(config)
-                            } else {
-                                self.cancelAlarm(config)
-                                SubscriptionManager.shared.presentRequiredPaywall()
+                                self.fireAlarm(AlarmConfig(stepGoal: 30))
                             }
-                        } else if SubscriptionManager.shared.canUseAlarms {
-                            self.alarmState = .firing
-                            self.fireAlarm(AlarmConfig(stepGoal: 30))
                         }
                     case .scheduled:
                         break
