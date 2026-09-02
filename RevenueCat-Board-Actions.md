@@ -35,7 +35,7 @@ Based on the screenshots you provided, RevenueCat is requesting:
 
 ### 3. Connect App Store Connect
 1. In RevenueCat: Settings → App Store Connect
-2. Upload the same `.p8` API key used for Apple Developer enrollment
+2. Upload the **App Store Connect API key** (`AuthKey_CS8X55UJ9D.p8`) — this is a different key from the per-app **In-App Purchase key** (`SubscriptionKey_77JM67RR84.p8`) used inside the "New App Store app" form; see RevenueCat-Setup-README.md for the verified values
 3. Connect your App Store Connect account
 
 ### 4. Update Configuration File

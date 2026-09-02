@@ -15,7 +15,7 @@ import XCTest
 @MainActor
 final class SubscriptionManagerFallbackTests: XCTestCase {
 
-    private var session: SKTestSession!
+    private var session: SKTestSession?
 
     override func setUp() async throws {
         try await super.setUp()
@@ -53,7 +53,7 @@ final class SubscriptionManagerFallbackTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        session.resetToDefaultState()
+        session?.resetToDefaultState()
         session = nil
         try await super.tearDown()
     }
@@ -115,7 +115,7 @@ final class SubscriptionManagerFallbackTests: XCTestCase {
     // MARK: - Trial converts to paid on renewal
 
     func testFallbackTrialConvertsToActiveAfterRenewal() async throws {
-        session.timeRate = .oneRenewalEveryTwoSeconds
+        try XCTUnwrap(session).timeRate = .oneRenewalEveryTwoSeconds
 
         let manager = makeManager()
         await manager.fetchProducts()
@@ -176,7 +176,7 @@ final class SubscriptionManagerFallbackTests: XCTestCase {
         XCTAssertEqual(manager.subscriptionState, .trial)
         XCTAssertTrue(manager.canUseAlarms)
 
-        try session.expireSubscription(productIdentifier: RevenueCatConstants.monthlyProductID)
+        try XCTUnwrap(session).expireSubscription(productIdentifier: RevenueCatConstants.monthlyProductID)
         try await waitUntil(timeout: 15) {
             !manager.isPremium
         }

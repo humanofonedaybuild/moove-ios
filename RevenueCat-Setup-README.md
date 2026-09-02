@@ -23,9 +23,15 @@ This document provides step-by-step instructions for completing the RevenueCat s
 ### 1. RevenueCat Dashboard Setup
 1. **Sign up at** https://app.revenuecat.com
 2. **Create project:** `Moove Alarm Clock`
-3. **Add iOS app:**
-   - Bundle ID: `com.moove.alarmclock`
-   - App Name: `Moove Alarm Clock`
+3. **Add iOS app** (RevenueCat → Apps & providers → New App Store app). Verified values (MOO-176):
+   - App name: `Moove Alarm Clock (App Store)` (display only)
+   - App Bundle ID: `com.moove.alarmclock` (matches Xcode project and App Store Connect)
+   - Custom URL Scheme: leave empty (optional; only used for paywall previews)
+   - In-app purchase key file: upload `~/Downloads/SubscriptionKey_77JM67RR84.p8`
+   - Key ID: `77JM67RR84`
+   - Issuer ID: the full ID from App Store Connect → Users and Access → Integrations → **In-App Purchase** (not the "App Store Connect API" section — different key, different issuer)
+   - Apple Small Business Program: skip unless enrolled
+   - App-specific shared secret (Legacy): leave empty (StoreKit 1 only; the app uses StoreKit 2)
 4. **Configure products** in RevenueCat to match App Store Connect:
    - Product ID: `moove.monthly` (monthly subscription)
    - Product ID: `moove.yearly` (yearly subscription)
@@ -40,9 +46,12 @@ This document provides step-by-step instructions for completing the RevenueCat s
    - Generate in RevenueCat: Settings → API Keys
 
 ### 3. App Store Connect Connection
-1. In RevenueCat: Settings → App Store Connect
-2. Upload the same `.p8` API key used for Apple Developer enrollment
-3. Connect App Store Connect account
+RevenueCat uses two different Apple keys — do not mix them up:
+
+1. **Per-app In-App Purchase key** (`SubscriptionKey_77JM67RR84.p8`, Key ID `77JM67RR84`, Issuer ID from the In-App Purchase section) — uploaded inside the "New App Store app" form. Required so StoreKit 2 transactions are recorded; without it users can lose entitlements.
+2. **App Store Connect API key** (`AuthKey_CS8X55UJ9D.p8`) — uploaded under RevenueCat Settings → App Store Connect to sync products and transaction data from ASC.
+
+Connect the App Store Connect account with the API key after creating the app.
 
 ### 4. Update Configuration Files
 

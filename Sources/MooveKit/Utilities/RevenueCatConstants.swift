@@ -10,7 +10,7 @@ public enum RevenueCatConstants {
     // Public SDK Key from the RevenueCat dashboard (Project → Apps → API Keys),
     // provided by the board in MOO-77. RevenueCat public SDK keys are safe to
     // ship in the client binary.
-    public static let sdkKey = "test_MMhJClpZuRprhVBfpDvBRsMfAOL"
+    public static let sdkKey = "appl_PaelTIKnPvotFuoSpfxwmZXbfVP"
 
     /// Whether `sdkKey` holds a real RevenueCat public SDK key.
     ///
