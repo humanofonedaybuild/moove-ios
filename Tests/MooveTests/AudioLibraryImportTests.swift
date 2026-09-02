@@ -21,9 +21,10 @@ final class AudioLibraryImportTests: XCTestCase {
 
     func testImportSoundFromLocalFile() async throws {
         // Stage a fake "user file": copy a bundled CAF to a temp location with
-        // a custom name, as if picked from the Files app.
+        // a custom name, as if picked from the Files app. Sounds are flattened
+        // to the bundle root (AlarmKit named-sound requirement).
         guard let bundled = Bundle.main.url(
-            forResource: "gentle_wake", withExtension: "caf", subdirectory: "Sounds"
+            forResource: "argon", withExtension: "caf"
         ) else {
             XCTFail("Bundled test sound missing")
             return

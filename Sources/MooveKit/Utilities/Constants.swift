@@ -48,11 +48,25 @@ public enum Constants {
         public static let maximumSteps: Int = 100
         public static let stepInterval: Int = 10
         public static let pedometerUpdateInterval: TimeInterval = 0.05
-        public static let shakeAccelerationThreshold: Double = 3.0
-        public static let shakeMinimumInterval: TimeInterval = 0.8
-        public static let stepPeakThreshold: Double = 2.5
-        public static let stepMinPeakDistance: TimeInterval = 0.6
+
+        /// Total-magnitude (incl. gravity) threshold for a walking-peak.
+        /// A natural in-hand arm swing peaks at ~1.6–2.2 g, so 1.4 g
+        /// registers ordinary walking without registering idle fidgets.
+        public static let stepPeakThreshold: Double = 1.4
+        /// A deliberate shake must exceed this to count as movement.
+        public static let shakeAccelerationThreshold: Double = 2.0
+        /// Minimum spacing between detected peaks — matches a natural
+        /// walking cadence (up to ~3 steps/sec).
+        public static let stepMinPeakDistance: TimeInterval = 0.3
+        public static let shakeMinimumInterval: TimeInterval = 0.4
         public static let stepDetectionWindowSize: Int = 10
-        public static let liveActivityUpdateInterval: TimeInterval = 0.5
+
+        /// Anti-jiggle confirmation: the first detected event starts
+        /// counting only after a second event within this window, so a
+        /// single tap/bump can never advance the mission.
+        public static let confirmationWindow: TimeInterval = 3.0
+        public static let confirmationEventCount: Int = 2
+
+        public static let liveActivityUpdateInterval: TimeInterval = 1.0
     }
 }

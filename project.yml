@@ -3,7 +3,6 @@ options:
   bundleIdPrefix: com.moove
   deploymentTarget:
     iOS: "26.0"
-    watchOS: "12.0"
   xcodeVersion: "26.0"
   createIntermediateGroups: true
 
@@ -53,14 +52,16 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "13"
+        CFBundleVersion: "15"
         ITSAppUsesNonExemptEncryption: false
         "NSAlarmKitUsageDescription": "Moove schedules alarms to wake you up. You must walk to dismiss them."
     sources:
       - path: Sources/Moove
       - path: Resources/Assets.xcassets
+      # Individual .caf files land at the app-bundle root so AlarmKit can
+      # resolve them for `AlertConfiguration.AlertSound.named(_:)`.
       - path: Resources/Sounds
-        type: folder
+        buildPhase: resources
       - path: Resources/Fonts
         buildPhase: resources
       - path: Resources/Moove.storekit
@@ -84,44 +85,6 @@ targets:
       properties:
         com.apple.security.application-groups:
           - group.com.moove.alarmclock
-
-  MooveWatch:
-    type: application
-    platform: watchOS
-    info:
-      path: Resources/MooveWatch-Info.plist
-      properties:
-        WKCompanionAppBundleIdentifier: com.moove.alarmclock
-        WKApplication: true
-        NSHealthShareUsageDescription: "Moove uses step count and workout data to track your wake-up mission."
-        NSHealthUpdateUsageDescription: "Moove records your wake-up walk as a workout so step tracking stays active during the alarm mission."
-        NSMotionUsageDescription: "Moove uses motion data to count your wake-up steps during the alarm mission."
-        WKBackgroundModes:
-          - workout-processing
-        UIAppFonts:
-          - CormorantGaramond-Variable.ttf
-          - CormorantGaramond-Italic-Variable.ttf
-          - Manrope-Variable.ttf
-    sources:
-      - path: Sources/MooveWatch
-      - path: Sources/MooveKit
-        excludes:
-          - "DesignSystem/**"
-      - path: Sources/Moove/DesignSystem
-        includes:
-          - "Font+Typography.swift"
-          - "Color+Tokens.swift"
-      - path: Resources/Assets.xcassets
-        buildPhase: resources
-      - path: Resources/Fonts
-        buildPhase: resources
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.moove.alarmclock.watch
-    entitlements:
-      path: Resources/MooveWatch.entitlements
-      properties:
-        com.apple.developer.healthkit: true
 
   MooveKit:
     type: framework
@@ -154,24 +117,18 @@ targets:
     platform: iOS
     sources:
       - path: Tests/MooveUITests
+      - path: Resources/Moove.storekit
+        buildPhase: resources
     dependencies:
       - target: Moove
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
 
-  MooveWatchTests:
-    type: bundle.unit-test
-    platform: watchOS
-    sources:
-      - path: Tests/MooveWatchTests
-    dependencies:
-      - target: MooveWatch
-    settings:
-      base:
-        GENERATE_INFOPLIST_FILE: YES
-
 schemes:
+  # Unit-test scheme. Its <TestAction> must NOT carry a StoreKit
+  # configuration: the subscription tests own StoreKit via SKTestSession,
+  # and a scheme-attached config invalidates those sessions.
   Moove:
     build:
       targets:
@@ -182,26 +139,28 @@ schemes:
       storeKitConfiguration: Resources/Moove.storekit
     test:
       config: Debug
-      storeKitConfiguration: Resources/Moove.storekit
       gatherCoverage: false
       commandLineArguments:
         "-DisableStoreKitInit": true
       targets:
         - MooveTests
-        - MooveUITests
     archive:
       config: Release
 
-  MooveWatch:
+  # UI-test scheme. Carries the StoreKit configuration so paywall flows
+  # exercise real sandbox products.
+  MooveUITests:
     build:
       targets:
-        MooveWatch: all
+        Moove: all
     run:
       config: Debug
+      storeKitConfiguration: Resources/Moove.storekit
     test:
       config: Debug
+      storeKitConfiguration: Resources/Moove.storekit
       targets:
-        - MooveWatchTests
+        - MooveUITests
     archive:
       config: Release
 

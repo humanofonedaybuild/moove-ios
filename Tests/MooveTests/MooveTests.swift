@@ -48,7 +48,7 @@ final class AlarmConfigTests: XCTestCase {
         XCTAssertEqual(config.label, "Alarm")
         XCTAssertEqual(config.stepGoal, 30)
         XCTAssertEqual(config.snoozeRemaining, 1)
-        XCTAssertEqual(config.soundName, "default")
+        XCTAssertEqual(config.soundName, "barium")
         XCTAssertTrue(config.isEnabled)
         XCTAssertTrue(config.weekdays.isEmpty)
     }

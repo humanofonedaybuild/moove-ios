@@ -75,7 +75,7 @@ final class ScreenshotTests: XCTestCase {
         app.tabBars.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
 
-        let upgrade = app.buttons["Upgrade to Premium"]
+        let upgrade = app.buttons["settings.upgrade"]
         XCTAssertTrue(upgrade.waitForExistence(timeout: 5))
         upgrade.tap()
 

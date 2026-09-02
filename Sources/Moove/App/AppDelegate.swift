@@ -82,7 +82,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         if !ProcessInfo.processInfo.arguments.contains("-DisableStoreKitInit") {
             SubscriptionManager.shared.observeTransactionUpdates()
         }
-        WatchSessionManager.shared.activate()
         return true
     }
 

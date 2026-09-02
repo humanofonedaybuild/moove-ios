@@ -15,91 +15,101 @@ struct SoundPickerView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                searchBar
-                    .padding(.horizontal, MooveSpacing.lg)
-                    .padding(.vertical, MooveSpacing.md)
-
-                List {
+            soundListContent
+                .mooveScreenBackground()
+                .navigationTitle("Audio Library")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                            .foregroundStyle(Color.taupe)
+                    }
                     if !searchQuery.isEmpty {
-                        // Search results
-                        let results = audioLibrary.search(searchQuery)
-                        if results.isEmpty {
-                            Text("No sounds match \"\(searchQuery)\"")
-                                .font(MooveFont.subheadline())
-                                .foregroundStyle(Color.taupe)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .listRowBackground(Color.clear)
-                        } else {
-                            ForEach(results) { sound in
-                                soundRow(sound)
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Clear") {
+                                withAnimation { searchQuery = "" }
                             }
-                        }
-                    } else {
-                        // Bundled section
-                        Section {
-                            ForEach(audioLibrary.builtInSounds) { sound in
-                                soundRow(sound)
-                            }
-                        } header: {
-                            Text("Bundled")
-                                .mooveEyebrow()
-                        }
-
-                        // Imported section
-                        let imported = importedSounds
-                        if !imported.isEmpty {
-                            Section {
-                                ForEach(imported) { sound in
-                                    soundRow(sound)
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                            Button(role: .destructive) {
-                                                audioLibrary.removeImportedSound(sound)
-                                            } label: {
-                                                Label("Delete", systemImage: "trash")
-                                            }
-                                        }
-                                }
-                            } header: {
-                                Text("Imported")
-                                    .mooveEyebrow()
-                            }
-                        }
-
-                        // Import button
-                        Section {
-                            importButton
+                            .foregroundStyle(Color.espresso)
                         }
                     }
                 }
-                .listStyle(.insetGrouped)
-                .scrollContentBackground(.hidden)
-                .tint(.terracotta)
-            }
-            .mooveScreenBackground()
-            .navigationTitle("Audio Library")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.taupe)
+                .fileImporter(
+                    isPresented: $showingFilePicker,
+                    allowedContentTypes: [.audio],
+                    allowsMultipleSelection: false
+                ) { result in
+                    handleFileImport(result)
                 }
+        }
+    }
+
+    private var soundListContent: some View {
+        VStack(spacing: 0) {
+            searchBar
+                .padding(.horizontal, MooveSpacing.lg)
+                .padding(.vertical, MooveSpacing.md)
+
+            List {
                 if !searchQuery.isEmpty {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Clear") {
-                            withAnimation { searchQuery = "" }
-                        }
-                        .foregroundStyle(Color.espresso)
-                    }
+                    searchResultsSection
+                } else {
+                    librarySection
                 }
             }
-            .fileImporter(
-                isPresented: $showingFilePicker,
-                allowedContentTypes: [.audio],
-                allowsMultipleSelection: false
-            ) { result in
-                handleFileImport(result)
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .tint(.terracotta)
+        }
+    }
+
+    @ViewBuilder
+    private var searchResultsSection: some View {
+        let results = audioLibrary.search(searchQuery)
+        if results.isEmpty {
+            Text("No sounds match \"\(searchQuery)\"")
+                .font(MooveFont.subheadline())
+                .foregroundStyle(Color.taupe)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .listRowBackground(Color.clear)
+        } else {
+            ForEach(results) { sound in
+                soundRow(sound)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var librarySection: some View {
+        Section {
+            ForEach(audioLibrary.builtInSounds) { sound in
+                soundRow(sound)
+            }
+        } header: {
+            Text("Bundled")
+                .mooveEyebrow()
+        }
+
+        let imported = importedSounds
+        if !imported.isEmpty {
+            Section {
+                ForEach(imported) { sound in
+                    soundRow(sound)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                audioLibrary.removeImportedSound(sound)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                }
+            } header: {
+                Text("Imported")
+                    .mooveEyebrow()
+            }
+        }
+
+        Section {
+            importButton
         }
     }
 

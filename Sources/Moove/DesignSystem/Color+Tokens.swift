@@ -9,6 +9,9 @@ public extension Color {
     static let hairline = Color(red: 224 / 255, green: 220 / 255, blue: 209 / 255)
     static let sage = Color(red: 162 / 255, green: 179 / 255, blue: 152 / 255)
     static let loadingWordmark = Color(red: 245 / 255, green: 242 / 255, blue: 235 / 255)
+    /// Barely-there shield used behind pinned bottom bars (paywall CTA)
+    /// so the pinned section reads as part of the same soft surface.
+    static let screenBottomShield = Color(red: 248 / 255, green: 245 / 255, blue: 239 / 255)
 
     static let brandPrimary = espresso
     static let brandAccent = terracotta

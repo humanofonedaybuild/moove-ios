@@ -4,6 +4,16 @@ import Observation
 import UIKit
 import MooveKit
 
+/// Counts wake-up mission steps from two fused sources:
+///
+/// 1. `CMPedometer` event updates — the device coprocessor's own step
+///    detection. This is the source of truth for real walking; every
+///    pedometer step counts immediately.
+/// 2. Accelerometer peak detection — catches deliberate phone-shakes and
+///    in-hand arm swings that the pedometer may under-count when the phone
+///    is held still-ish in the hand. Runs entirely on a background queue;
+///    only confirmed step deltas are dispatched to the main actor so the
+///    UI/render path never touches 20 Hz sensor data.
 @Observable
 @MainActor
 final class StepCounter: NSObject {
@@ -17,30 +27,29 @@ final class StepCounter: NSObject {
 
     private let pedometer = CMPedometer()
     private let motionManager = CMMotionManager()
-    private var motionUpdateTask: Task<Void, Never>?
-    private var lastShakeTime: Date = .distantPast
-    private var lastStepTime: Date = .distantPast
 
+    /// Serial background queue for accelerometer peak detection. Sensor
+    /// samples must never be processed on the main thread (crash-fix:
+    /// previous builds created a `Task` per 50 ms sample on the main
+    /// actor, hammering the run loop during missions).
+    private let detectionQueue = OperationQueue()
+
+    private var lastActivityUpdateTime: Date = .distantPast
+
+    /// Pedometer steps observed since mission start (cumulative).
     private var pedometerSteps: Int = 0
+    /// Accelerometer-detected steps since mission start (cumulative).
     private var shakeSteps: Int = 0
 
     private var isMissionCompleting = false
     private var pauseTime: Date?
 
-    private var magnitudeBuffer: [Double] = []
-    private let magnitudeWindowSize = Constants.StepTracking.stepDetectionWindowSize
-
-    private var lastActivityUpdateTime: Date = .distantPast
-    private var recentStepTimestamps: [Date] = []
-    private let sustainedActivityWindow: TimeInterval = 5.0
-    private let sustainedActivityMinSteps: Int = 4
-
-    private var warmupStepsRemaining: Int = 3
-
     private let stepHaptic = UIImpactFeedbackGenerator(style: .light)
     private let completionHaptic = UIImpactFeedbackGenerator(style: .soft)
 
     private override init() {
+        detectionQueue.maxConcurrentOperationCount = 1
+        detectionQueue.qualityOfService = .userInteractive
         super.init()
     }
 
@@ -54,13 +63,10 @@ final class StepCounter: NSObject {
         isPaused = false
         isMissionCompleting = false
         pauseTime = nil
-        magnitudeBuffer = []
-        lastShakeTime = .distantPast
-        lastStepTime = .distantPast
         lastActivityUpdateTime = .distantPast
-        recentStepTimestamps = []
-        warmupStepsRemaining = 3
+        detector = StepPeakDetector()
 
+        stepHaptic.prepare()
         startPedometerUpdates()
         startAccelerometerStepDetection()
     }
@@ -68,49 +74,46 @@ final class StepCounter: NSObject {
     func requestAuthorization() {
     }
 
-    func syncFromWatch(_ stepsCompleted: Int) {
-        guard isCounting, !isPaused else { return }
-        handleStepUpdate(stepsCompleted)
-    }
-
     func stopCounting() {
         isCounting = false
         isPaused = false
         pauseTime = nil
-        pedometer.stopEventUpdates()
-        pedometer.stopUpdates()
-        motionManager.stopAccelerometerUpdates()
-        motionUpdateTask?.cancel()
-        motionUpdateTask = nil
+        stopSensors()
     }
 
     func pauseCounting() {
         guard isCounting, !isPaused else { return }
         isPaused = true
         pauseTime = Date()
-        pedometer.stopEventUpdates()
-        pedometer.stopUpdates()
-        motionManager.stopAccelerometerUpdates()
+        stopSensors()
     }
 
     func resumeCounting() {
         guard isCounting, isPaused else { return }
         isPaused = false
         pauseTime = nil
-        warmupStepsRemaining = 2
-        recentStepTimestamps = []
-        magnitudeBuffer = []
+        detector = StepPeakDetector()
         startPedometerUpdates()
         startAccelerometerStepDetection()
     }
+
+    private func stopSensors() {
+        pedometer.stopEventUpdates()
+        pedometer.stopUpdates()
+        motionManager.stopAccelerometerUpdates()
+        detectionQueue.cancelAllOperations()
+    }
+
+    // MARK: - Pedometer (real steps — authoritative)
 
     private func startPedometerUpdates() {
         guard CMPedometer.isStepCountingAvailable() else { return }
 
         pedometer.startUpdates(from: Date()) { [weak self] data, error in
-            guard let self, let data, error == nil else { return }
+            guard let data, error == nil else { return }
+            let steps = data.numberOfSteps.intValue
             Task { @MainActor in
-                self.handlePedometerUpdate(data.numberOfSteps.intValue)
+                self?.handlePedometerUpdate(steps)
             }
         }
     }
@@ -118,112 +121,57 @@ final class StepCounter: NSObject {
     private func handlePedometerUpdate(_ steps: Int) {
         guard isCounting, !isPaused else { return }
         let delta = steps - pedometerSteps
-        if delta > 0 {
-            pedometerSteps = steps
-            let now = Date()
-            for _ in 0..<delta {
-                recentStepTimestamps.append(now)
-            }
-            trimRecentStepTimestamps(to: now)
-            guard isSustainedWalkingActivity() else { return }
-            applyCombinedCount()
-        } else {
+        guard delta > 0 else {
             pedometerSteps = max(pedometerSteps, steps)
+            return
         }
-    }
-
-    private func handleStepUpdate(_ steps: Int) {
-        guard isCounting, !isPaused else { return }
-        pedometerSteps = max(pedometerSteps, steps)
+        pedometerSteps = steps
         applyCombinedCount()
     }
 
+    // MARK: - Accelerometer (shakes + in-hand swings)
+
+    /// Detector state is confined to `detectionQueue` via the lock inside
+    /// `StepPeakDetector`, so mutation from the sensor callback is safe.
+    private var detector = StepPeakDetector()
+
     private func startAccelerometerStepDetection() {
         guard motionManager.isAccelerometerAvailable else { return }
-        motionManager.accelerometerUpdateInterval = 0.05
+        motionManager.accelerometerUpdateInterval = Constants.StepTracking.pedometerUpdateInterval
 
-        motionManager.startAccelerometerUpdates(to: .main) { [weak self] data, error in
-            guard let self, let data, error == nil else { return }
+        motionManager.startAccelerometerUpdates(to: detectionQueue) { [weak self] data, error in
+            guard let data, error == nil else { return }
             let acceleration = data.acceleration
             let magnitude = sqrt(
                 acceleration.x * acceleration.x +
                 acceleration.y * acceleration.y +
                 acceleration.z * acceleration.z
             )
+            guard let detected = self?.detector.process(magnitude: magnitude, at: Date()),
+                  detected > 0 else { return }
             Task { @MainActor in
-                self.processAccelerometerMagnitude(magnitude)
+                self?.handleDetectedAccelerometerSteps(detected)
             }
         }
     }
 
-    private func processAccelerometerMagnitude(_ magnitude: Double) {
+    private func handleDetectedAccelerometerSteps(_ count: Int) {
         guard isCounting, !isPaused else { return }
-
-        magnitudeBuffer.append(magnitude)
-        if magnitudeBuffer.count > magnitudeWindowSize {
-            magnitudeBuffer.removeFirst()
-        }
-        guard magnitudeBuffer.count >= 3 else { return }
-
-        let count = magnitudeBuffer.count
-        let current = magnitudeBuffer[count - 1]
-        let previous = magnitudeBuffer[count - 2]
-        let beforePrevious = magnitudeBuffer[count - 3]
-
-        let isPeak = previous > current && previous > beforePrevious
-
-        let peakThreshold = Constants.StepTracking.stepPeakThreshold
-        let shakeThreshold = Constants.StepTracking.shakeAccelerationThreshold
-
-        let now = Date()
-        let minDistance = Constants.StepTracking.stepMinPeakDistance
-
-        if isPeak && previous > peakThreshold {
-            guard now.timeIntervalSince(lastStepTime) > minDistance else { return }
-            lastStepTime = now
-            recentStepTimestamps.append(now)
-            trimRecentStepTimestamps(to: now)
-            guard isSustainedWalkingActivity() else { return }
-            if warmupStepsRemaining > 0 {
-                warmupStepsRemaining -= 1
-                return
-            }
-            shakeSteps += 1
-            stepHaptic.impactOccurred()
-            applyCombinedCount()
-        } else if magnitude > shakeThreshold {
-            let minInterval = Constants.StepTracking.shakeMinimumInterval
-            guard now.timeIntervalSince(lastShakeTime) > minInterval else { return }
-            lastShakeTime = now
-            recentStepTimestamps.append(now)
-            trimRecentStepTimestamps(to: now)
-            guard isSustainedWalkingActivity() else { return }
-            if warmupStepsRemaining > 0 {
-                warmupStepsRemaining -= 1
-                return
-            }
-            shakeSteps += 1
-            stepHaptic.impactOccurred()
-            applyCombinedCount()
-        }
-    }
-
-    private func trimRecentStepTimestamps(to now: Date) {
-        let cutoff = now.addingTimeInterval(-sustainedActivityWindow)
-        recentStepTimestamps.removeAll { $0 < cutoff }
-    }
-
-    private func isSustainedWalkingActivity() -> Bool {
-        recentStepTimestamps.count >= sustainedActivityMinSteps
+        shakeSteps += count
+        stepHaptic.impactOccurred()
+        stepHaptic.prepare()
+        applyCombinedCount()
     }
 
     #if DEBUG
     func debugSimulateSteps(_ count: Int) {
-        guard isCounting else { return }
+        guard isCounting, !isPaused else { return }
         shakeSteps += count
         applyCombinedCount()
     }
     #endif
+
+    // MARK: - Combined count
 
     private func applyCombinedCount() {
         guard isCounting, !isPaused, !isMissionCompleting else { return }
@@ -237,11 +185,7 @@ final class StepCounter: NSObject {
         if currentStepCount >= targetStepCount {
             isMissionCompleting = true
             isCounting = false
-            pedometer.stopEventUpdates()
-            pedometer.stopUpdates()
-            motionManager.stopAccelerometerUpdates()
-            motionUpdateTask?.cancel()
-            motionUpdateTask = nil
+            stopSensors()
             completionHaptic.impactOccurred()
             AlarmMissionActivity.shared.updateActivity(stepsRemaining: 0)
             AppAlarmManager.shared.completeMission()
@@ -255,5 +199,81 @@ final class StepCounter: NSObject {
         }
         lastActivityUpdateTime = now
         AlarmMissionActivity.shared.updateActivity(stepsRemaining: targetStepCount - currentStepCount)
+    }
+}
+
+/// Peak-based step/shake detector, confined to a single background queue.
+///
+/// Sensitivity design (MOO-175 bug #2 — counter was nearly impossible to
+/// move with a natural arm swing):
+/// - Peak threshold **1.4 g** total magnitude: a normal in-hand arm swing
+///   peaks around 1.6–2.2 g; the old 2.5 g required violent shaking.
+/// - Deliberate shake threshold **2.0 g**: still accepts any honest shake
+///   as valid movement (per product spec).
+/// - Minimum peak distance **0.3 s**: matches a natural walking cadence
+///   (up to ~3 steps/s); the old 0.6 s dropped every other step.
+/// - Anti-jiggle: the first event only counts once a second event arrives
+///   within 3 s (so a single tap/bump can never start or advance the
+///   mission); afterwards every event counts.
+final class StepPeakDetector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var magnitudeBuffer: [Double] = []
+    private let magnitudeWindowSize = Constants.StepTracking.stepDetectionWindowSize
+
+    private var lastEventTime = Date.distantPast
+    /// Timestamps of the (up to 2) pending confirmation events.
+    private var pendingConfirmation: [Date] = []
+    private var isConfirmed = false
+
+    /// Processes one accelerometer magnitude sample and returns how many
+    /// steps were detected (0 or 1). Must be called from a single queue.
+    func process(magnitude: Double, at now: Date) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+
+        magnitudeBuffer.append(magnitude)
+        if magnitudeBuffer.count > magnitudeWindowSize {
+            magnitudeBuffer.removeFirst()
+        }
+        guard magnitudeBuffer.count >= 3 else { return 0 }
+
+        let count = magnitudeBuffer.count
+        let current = magnitudeBuffer[count - 1]
+        let previous = magnitudeBuffer[count - 2]
+        let beforePrevious = magnitudeBuffer[count - 3]
+
+        let isPeak = previous > current && previous > beforePrevious
+        let peakThreshold = Constants.StepTracking.stepPeakThreshold
+        let shakeThreshold = Constants.StepTracking.shakeAccelerationThreshold
+
+        var detected = false
+
+        // Both paths share one suppression timestamp: a single hard
+        // shake is a peak on its falling edge too, and counting both
+        // would double-register every deliberate shake (a 2.5 g spike
+        // used to count as two steps). One physical event = one step.
+        if isPeak && previous > peakThreshold {
+            let minDistance = Constants.StepTracking.stepMinPeakDistance
+            guard now.timeIntervalSince(lastEventTime) >= minDistance else { return 0 }
+            detected = true
+        } else if magnitude > shakeThreshold {
+            let minInterval = Constants.StepTracking.shakeMinimumInterval
+            guard now.timeIntervalSince(lastEventTime) >= minInterval else { return 0 }
+            detected = true
+        }
+
+        guard detected else { return 0 }
+        lastEventTime = now
+        return confirm(now: now)
+    }
+
+    private func confirm(now: Date) -> Int {
+        if isConfirmed { return 1 }
+        pendingConfirmation.append(now)
+        pendingConfirmation.removeAll { $0.timeIntervalSince(now) < -Constants.StepTracking.confirmationWindow }
+        guard pendingConfirmation.count >= Constants.StepTracking.confirmationEventCount else { return 0 }
+        isConfirmed = true
+        // The confirming events themselves count once activity is confirmed.
+        return 1
     }
 }

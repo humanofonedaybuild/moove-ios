@@ -5,7 +5,6 @@ let package = Package(
     name: "Moove",
     platforms: [
         .iOS(.v26),
-        .watchOS(.v12),
     ],
     products: [
         .library(

@@ -10,7 +10,7 @@ public struct AppSettings: Codable, Sendable, Equatable {
 
     public static let `default` = AppSettings(
         defaultStepGoal: 30,
-        defaultSoundName: "default",
+        defaultSoundName: "barium",
         snoozeLimit: 1,
         snoozeDurationIndex: 0,
         gradualVolume: false,

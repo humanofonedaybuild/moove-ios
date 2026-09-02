@@ -66,6 +66,12 @@ final class SubscriptionStoreKitTests: XCTestCase {
         session.disableDialogs = true
         session.resetToDefaultState()
         self.session = session
+
+        // Session-health probe: on some sim runtimes storekitd accepts the
+        // session object but rejects every operation (SKInternalErrorDomain
+        // Code=3), leaving Product.products empty. Skip loudly instead of
+        // reporting false product regressions.
+        try await SubscriptionManagerFallbackTests.skipIfSessionUnavailable(session)
     }
 
     override func tearDown() async throws {

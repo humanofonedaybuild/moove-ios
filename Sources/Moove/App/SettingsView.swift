@@ -81,6 +81,7 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, MooveSpacing.sm)
                 }
+                .accessibilityIdentifier("settings.upgrade")
                 .mooveListRow()
             }
 

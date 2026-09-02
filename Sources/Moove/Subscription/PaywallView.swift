@@ -16,19 +16,28 @@ struct PaywallView: View {
     @State private var hasCompletedInitialFetch = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: MooveSpacing.xxl) {
-                headerSection
-                howItWorksSection
-                pricingSection
-                bottomSection
+        // The purchase CTA is pinned below the scrollable hero/pricing
+        // content so it is always visible and reachable without scrolling
+        // (a below-the-fold primary CTA is a conversion-killing and
+        // accessibility-reachability defect).
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: MooveSpacing.xxl) {
+                    headerSection
+                    howItWorksSection
+                    pricingSection
+                }
+                .padding(.horizontal, MooveSpacing.xxl)
+                .padding(.top, MooveSpacing.huge)
+                .padding(.bottom, MooveSpacing.lg)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, MooveSpacing.xxl)
-            .padding(.top, MooveSpacing.huge)
-            .padding(.bottom, MooveSpacing.huge)
-            .frame(maxWidth: .infinity)
+            .scrollDismissesKeyboard(.interactively)
+
+            bottomSection
+                .padding(.horizontal, MooveSpacing.xl)
+                .background(Color.screenBottomShield)
         }
-        .scrollDismissesKeyboard(.interactively)
         .mooveScreenBackground()
         .task {
             await subscriptionManager.fetchProducts()
@@ -160,59 +169,9 @@ struct PaywallView: View {
                     .tint(.espresso)
                     .padding(.vertical, MooveSpacing.lg)
             } else if !subscriptionManager.products.isEmpty {
-                Text("Start your 7-day free trial")
-                    .font(MooveFont.headline())
-                    .foregroundStyle(Color.espresso)
-
-                Text("Cancel anytime")
-                    .font(MooveFont.caption())
-                    .foregroundStyle(Color.taupe.opacity(0.7))
-
-                if let monthly = subscriptionManager.monthlyProduct {
-                    PlanCard(
-                        title: "Monthly",
-                        price: "\(monthly.localizedPriceString) / month",
-                        trialDuration: "7-day free trial",
-                        isSelected: selectedPlan == .monthly,
-                        action: { selectedPlan = .monthly }
-                    )
-                }
-
-                if let yearly = subscriptionManager.yearlyProduct {
-                    PlanCard(
-                        title: "Yearly · Best Value",
-                        price: "\(yearly.localizedPriceString) / year",
-                        trialDuration: "7-day free trial",
-                        savingsNote: "Save over 30% vs monthly",
-                        isSelected: selectedPlan == .yearly,
-                        action: { selectedPlan = .yearly }
-                    )
-                }
+                planPickerSection
             } else if hasCompletedInitialFetch {
-                VStack(spacing: MooveSpacing.md) {
-                    Text("Pricing unavailable")
-                        .font(MooveFont.subheadline())
-                        .foregroundStyle(Color.taupe)
-
-                    Text(subscriptionManager.productsLoadFailed
-                         ? "We couldn't load subscription options. Check your connection and try again."
-                         : "We couldn't load subscription options right now.")
-                        .font(MooveFont.caption())
-                        .foregroundStyle(Color.taupe.opacity(0.7))
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: 260)
-
-                    Button {
-                        Task { await subscriptionManager.fetchProducts() }
-                    } label: {
-                        Text("Retry")
-                            .font(MooveFont.caption())
-                            .foregroundStyle(Color.terracotta)
-                            .frame(width: 200, height: 44)
-                    }
-                    .accessibilityIdentifier("paywall.retryButton")
-                }
+                pricingUnavailableSection
             } else {
                 ProgressView()
                     .tint(.espresso)
@@ -220,6 +179,66 @@ struct PaywallView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var planPickerSection: some View {
+        VStack(spacing: MooveSpacing.md) {
+            Text("Start your 7-day free trial")
+                .font(MooveFont.headline())
+                .foregroundStyle(Color.espresso)
+
+            Text("Cancel anytime")
+                .font(MooveFont.caption())
+                .foregroundStyle(Color.taupe.opacity(0.7))
+
+            if let monthly = subscriptionManager.monthlyProduct {
+                PlanCard(
+                    title: "Monthly",
+                    price: "\(monthly.localizedPriceString) / month",
+                    trialDuration: "7-day free trial",
+                    isSelected: selectedPlan == .monthly,
+                    action: { selectedPlan = .monthly }
+                )
+            }
+
+            if let yearly = subscriptionManager.yearlyProduct {
+                PlanCard(
+                    title: "Yearly · Best Value",
+                    price: "\(yearly.localizedPriceString) / year",
+                    trialDuration: "7-day free trial",
+                    savingsNote: "Save over 30% vs monthly",
+                    isSelected: selectedPlan == .yearly,
+                    action: { selectedPlan = .yearly }
+                )
+            }
+        }
+    }
+
+    private var pricingUnavailableSection: some View {
+        VStack(spacing: MooveSpacing.md) {
+            Text("Pricing unavailable")
+                .font(MooveFont.subheadline())
+                .foregroundStyle(Color.taupe)
+
+            Text(subscriptionManager.productsLoadFailed
+                 ? "We couldn't load subscription options. Check your connection and try again."
+                 : "We couldn't load subscription options right now.")
+                .font(MooveFont.caption())
+                .foregroundStyle(Color.taupe.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 260)
+
+            Button {
+                Task { await subscriptionManager.fetchProducts() }
+            } label: {
+                Text("Retry")
+                    .font(MooveFont.caption())
+                    .foregroundStyle(Color.terracotta)
+                    .frame(width: 200, height: 44)
+            }
+            .accessibilityIdentifier("paywall.retryButton")
+        }
     }
 
     // MARK: - Bottom (CTA + trial note + secondary + restore + legal)

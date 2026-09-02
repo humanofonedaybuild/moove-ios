@@ -160,7 +160,13 @@ final class SubscriptionManager: NSObject {
         }
     }
 
+    /// Development-only mock products. Shipping mock "$4.99/mo" products in
+    /// a Release/TestFlight build is what made the subscription flow look
+    /// broken in production (purchases can only fail there) — in Release
+    /// a load failure must surface the paywall's "pricing unavailable +
+    /// retry" state instead (`productsLoadFailed`, MOO-112).
     private func loadFallbackProducts() {
+        #if DEBUG
         guard products.isEmpty else { return }
         print("StoreKit: Loading fallback products — StoreKit products not available (App Store Connect not configured or not in sandbox)")
         products = [
@@ -168,6 +174,9 @@ final class SubscriptionManager: NSObject {
             PaywallProduct(backing: .development(mockPrice: "$39.99/yr", productID: RevenueCatConstants.yearlyProductID))
         ]
         productsLoadFailed = false
+        #else
+        productsLoadFailed = true
+        #endif
     }
 
     func purchase(_ product: PaywallProduct) async throws {
@@ -179,8 +188,21 @@ final class SubscriptionManager: NSObject {
             try await purchaseViaStoreKit(storeProduct)
         case .development:
             #if DEBUG
-            print("StoreKit: Purchase attempted in development mode - simulated success")
-            isPremium = true
+            print("StoreKit: Purchase attempted in development mode - simulated trial start")
+            // The simulated purchase must resolve the SAME coherent state a
+            // real sandbox trial purchase produces (premium + trial state +
+            // full access + paywall dismissed). Previously this path set only
+            // `isPremium`, leaving `subscriptionState == .inactive` — Settings
+            // kept reading "Free" after a "successful" purchase, which made
+            // the whole subscription flow look broken in dev/TestFlight
+            // sanity builds (MOO-175 bug #3).
+            applyResolvedAccess(
+                hasCurrentEntitlement: true,
+                isInIntroductoryOffer: true,
+                lastTrialExpiration: nowProvider().addingTimeInterval(Constants.subscriptionTrialDuration),
+                hasExpiredSubscriptionStatus: false
+            )
+            isEligibleForTrial = false
             shouldShowPaywall = false
             #else
             throw SubscriptionError.unknown
@@ -300,14 +322,12 @@ final class SubscriptionManager: NSObject {
             // main UI for free users (QA MOO-87).
             await applyRevenueCatCustomerInfo(customerInfo)
         } catch {
-            print("RevenueCat: failed to check premium status: \(error.localizedDescription)")
-            isPremium = false
-            applyResolvedAccess(
-                hasCurrentEntitlement: false,
-                isInIntroductoryOffer: false,
-                lastTrialExpiration: persistedTrialExpiration(),
-                hasExpiredSubscriptionStatus: persistedTrialExpiration() != nil
-            )
+            // Fail-open: a transient fetch error must never downgrade a
+            // paying subscriber (e.g. no network at 3 AM — RevenueCat
+            // normally serves cached CustomerInfo here, this path is
+            // rare). Keep the last known access state rather than
+            // suspending the user's alarms.
+            print("RevenueCat: failed to check premium status (keeping last known state): \(error.localizedDescription)")
         }
     }
 

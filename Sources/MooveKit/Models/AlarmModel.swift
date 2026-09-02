@@ -44,7 +44,7 @@ public struct AlarmConfig: Codable, Sendable, Equatable, Identifiable {
         stepGoal: Int = 30,
         snoozeRemaining: Int = 1,
         snoozeEnabled: Bool = true,
-        soundName: String = "default"
+        soundName: String = "barium"
     ) {
         self.id = id
         self.label = label

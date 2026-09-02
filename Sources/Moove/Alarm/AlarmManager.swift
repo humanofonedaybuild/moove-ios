@@ -155,7 +155,6 @@ final class AppAlarmManager {
         activeMission = config
         alarmState = .missionActive
         missionStartTime = Date()
-        WatchSessionManager.shared.sendMissionStart(stepsRequired: config.stepGoal)
         AlarmMissionActivity.shared.startActivity(stepsRequired: config.stepGoal)
     }
 

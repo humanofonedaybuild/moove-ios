@@ -70,7 +70,12 @@ extension AlarmManager.AlarmConfiguration {
             tintColor: Color.terracotta
         )
 
-        let alarmSound: AlertConfiguration.AlertSound = .default
+        // Ring the user's chosen sound on the lock screen. The file is
+        // bundled at the app-bundle root so the system resolves it; the
+        // app takes over playback with the same file the moment the
+        // mission starts, so there is no audible seam.
+        let soundFileName = AudioLibrary.alarmKitSoundName(for: config.soundName)
+        let alarmSound: AlertConfiguration.AlertSound = .named("\(soundFileName).caf")
 
         return AlarmManager.AlarmConfiguration.alarm(
             schedule: schedule,
@@ -137,7 +142,8 @@ extension AlarmManager.AlarmConfiguration {
             tintColor: Color.terracotta
         )
 
-        let alarmSound: AlertConfiguration.AlertSound = .default
+        let soundFileName = AudioLibrary.alarmKitSoundName(for: config.soundName)
+        let alarmSound: AlertConfiguration.AlertSound = .named("\(soundFileName).caf")
 
         return AlarmManager.AlarmConfiguration.alarm(
             schedule: schedule,

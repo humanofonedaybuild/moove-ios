@@ -43,6 +43,11 @@ final class AlarmMissionActivity {
         updateTask = Task { @MainActor [weak self] in
             guard let self, let activity = self.activity else { return }
             guard !Task.isCancelled else { return }
+            // Never touch an activity that has already ended or been
+            // dismissed — updating a dead activity is undefined and a
+            // mid-mission crash vector when the user clears the Live
+            // Activity from the Dynamic Island while walking.
+            guard activity.activityState == .active else { return }
             await activity.update(content)
         }
     }

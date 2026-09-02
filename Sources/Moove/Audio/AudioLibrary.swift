@@ -47,14 +47,22 @@ final class AudioLibrary {
             return url
         }
         if let builtIn = builtInSounds.first(where: { $0.id == soundName }) {
-            return Bundle.main.url(
-                forResource: builtIn.filename,
-                withExtension: "caf",
-                subdirectory: "Sounds"
-            )
+            // Sounds are flattened into the bundle root so AlarmKit can
+            // resolve them via `AlertSound.named`; the subdirectory
+            // lookup stays as a fallback for older bundle layouts.
+            return Bundle.main.url(forResource: builtIn.filename, withExtension: "caf")
+                ?? Bundle.main.url(
+                    forResource: builtIn.filename,
+                    withExtension: "caf",
+                    subdirectory: "Sounds"
+                )
         }
         return nil
     }
+
+    /// The sound to play when a stored id no longer resolves (e.g. the
+    /// legacy placeholder library was removed).
+    var fallbackSoundName: String { "barium" }
 
     func displayName(for soundName: String) -> String {
         builtInSounds.first { $0.id == soundName }?.displayName
@@ -179,29 +187,69 @@ final class AudioLibrary {
         }
     }
 
+    /// File name (without extension) AlarmKit should ring on the lock
+    /// screen. The sound is bundled at the app-bundle root so the system
+    /// resolves it via `AlertConfiguration.AlertSound.named`.
     nonisolated static func alarmKitSoundName(for soundName: String) -> String {
         let mapping: [String: String] = [
-            "default": "default_alarm",
-            "gentle": "gentle_wake",
-            "nature": "nature",
-            "urgent": "urgent",
-            "digital": "digital",
+            "analysis": "analysis",
+            "argon": "argon",
+            "barium": "barium",
+            "carbon": "carbon",
+            "cesium": "cesium",
+            "copernicium": "copernicium",
+            "curium": "curium",
+            "departure": "departure",
+            "firedrill": "firedrill",
+            "hassium": "hassium",
+            "krypton": "krypton",
+            "neon": "neon",
+            "osmium": "osmium",
+            "platinum": "platinum",
+            "scandium": "scandium",
+            "timing": "timing",
         ]
-        return mapping[soundName] ?? "default_alarm"
+        return mapping[soundName] ?? "barium"
     }
 
+    /// Built-in alarm sound library. All 16 sounds are distinct, real
+    /// alarm audio from the Android Open Source Project (Apache 2.0) —
+    /// see `SOUNDS-ATTRIBUTION.md` for source and license details. The
+    /// previous five bundled sounds were synthesized placeholders that
+    /// sounded identical (MOO-175 bug #5).
     private static let defaultBuiltInSounds: [Sound] = [
-        Sound(id: "default",   displayName: "Default Alarm", filename: "default_alarm", icon: "bell.fill"),
-        Sound(id: "gentle",    displayName: "Gentle Wake",   filename: "gentle_wake",   icon: "wind"),
-        Sound(id: "nature",    displayName: "Nature Sounds", filename: "nature",       icon: "leaf.fill"),
-        Sound(id: "urgent",    displayName: "Urgent",        filename: "urgent",        icon: "exclamationmark.triangle.fill"),
-        Sound(id: "digital",   displayName: "Digital",       filename: "digital",       icon: "clock.fill"),
+        Sound(id: "barium",       displayName: "Barium",       filename: "barium",       icon: "sunrise.fill"),
+        Sound(id: "cesium",       displayName: "Cesium",       filename: "cesium",       icon: "bell.fill"),
+        Sound(id: "argon",        displayName: "Argon",        filename: "argon",        icon: "sparkles"),
+        Sound(id: "carbon",       displayName: "Carbon",      filename: "carbon",       icon: "dot.radiowaves.left.and.right"),
+        Sound(id: "analysis",     displayName: "Analysis",     filename: "analysis",     icon: "waveform"),
+        Sound(id: "departure",    displayName: "Departure",    filename: "departure",    icon: "paperplane.fill"),
+        Sound(id: "firedrill",    displayName: "Fire Drill",   filename: "firedrill",    icon: "siren.fill"),
+        Sound(id: "hassium",      displayName: "Hassium",      filename: "hassium",      icon: "speaker.wave.3.fill"),
+        Sound(id: "krypton",      displayName: "Krypton",      filename: "krypton",      icon: "bolt.fill"),
+        Sound(id: "neon",         displayName: "Neon",         filename: "neon",         icon: "lightbulb.fill"),
+        Sound(id: "osmium",       displayName: "Osmium",       filename: "osmium",       icon: "water.waves"),
+        Sound(id: "platinum",     displayName: "Platinum",     filename: "platinum",     icon: "crown.fill"),
+        Sound(id: "scandium",     displayName: "Scandium",     filename: "scandium",     icon: "metronome"),
+        Sound(id: "timing",       displayName: "Timing",       filename: "timing",       icon: "timer"),
+        Sound(id: "copernicium",  displayName: "Copernicium",  filename: "copernicium",  icon: "music.note"),
+        Sound(id: "curium",       displayName: "Curium",       filename: "curium",       icon: "music.quarternote.3"),
     ]
 
+    /// Migrates legacy sound ids (the old placeholder library and the
+    /// pre-MOO-150 names) to the closest current sound.
     private static let legacySoundMigrationMap: [String: String] = [
-        "breeze": "gentle",
-        "birds": "nature",
-        "waves": "nature",
+        "default": "barium",
+        "gentle": "argon",
+        "nature": "platinum",
+        "urgent": "firedrill",
+        "digital": "carbon",
+        "breeze": "argon",
+        "birds": "platinum",
+        "waves": "osmium",
+        // Raw filenames should never appear as ids, but tolerate them.
+        "default_alarm": "barium",
+        "gentle_wake": "argon",
     ]
 
     static func migrateSoundName(_ name: String) -> String {

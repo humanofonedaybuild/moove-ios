@@ -62,7 +62,7 @@ final class AudioManager: NSObject {
     func playAlarmSound(named soundName: String, preview: Bool = false) {
         currentSoundName = soundName
         guard let url = AudioLibrary.shared.url(for: soundName) else {
-            if let fallbackUrl = AudioLibrary.shared.url(for: "default") {
+            if let fallbackUrl = AudioLibrary.shared.url(for: AudioLibrary.shared.fallbackSoundName) {
                 playSoundFromURL(fallbackUrl, preview: preview)
             }
             return
@@ -79,7 +79,7 @@ final class AudioManager: NSObject {
             audioPlayer = try AVAudioPlayer(contentsOf: url)
         } catch {
             print("AudioManager: failed to create player for \(url.lastPathComponent): \(error.localizedDescription)")
-            if let fallbackUrl = AudioLibrary.shared.url(for: "default"),
+            if let fallbackUrl = AudioLibrary.shared.url(for: AudioLibrary.shared.fallbackSoundName),
                fallbackUrl != url {
                 audioPlayer = try? AVAudioPlayer(contentsOf: fallbackUrl)
             }
