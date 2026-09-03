@@ -257,7 +257,7 @@ final class QAMatrixUITests: XCTestCase {
     // MARK: - Item 6: Paywall renders with sandbox products; trial purchase (StoreKit fallback backend)
 
     func test05PaywallRendersAndSandboxTrialPurchase() {
-        app.launchArguments += ["-UITestingSeedAlarms"]
+        app.launchArguments += ["-UITestingSeedAlarms", "-ForceStoreKitBackend"]
         app.launch()
         waitForMainInterface()
 

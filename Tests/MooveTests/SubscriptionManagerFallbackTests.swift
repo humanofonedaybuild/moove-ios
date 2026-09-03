@@ -19,10 +19,6 @@ final class SubscriptionManagerFallbackTests: XCTestCase {
 
     override func setUp() async throws {
         try await super.setUp()
-        try XCTSkipIf(
-            RevenueCatConstants.isConfigured,
-            "Real RevenueCat SDK key configured — StoreKit fallback is inactive"
-        )
         // Same binding approach as SubscriptionStoreKitTests: the config is
         // registered with the test host via the scheme's TestAction
         // StoreKitConfigurationFileReference.

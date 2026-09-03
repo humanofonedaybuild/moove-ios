@@ -142,6 +142,7 @@ schemes:
       gatherCoverage: false
       commandLineArguments:
         "-DisableStoreKitInit": true
+        "-ForceStoreKitBackend": true
       targets:
         - MooveTests
     archive:

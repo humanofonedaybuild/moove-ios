@@ -79,6 +79,18 @@ final class SubscriptionManager: NSObject {
         guard !isConfigured else { return }
         isConfigured = true
 
+        // UI tests use -ForceStoreKitBackend to force the StoreKit 2 fallback
+        // even when the real RevenueCat SDK key is present, so the sandbox
+        // purchase flow can be exercised via SKTestSession in the simulator.
+        if ProcessInfo.processInfo.arguments.contains("-ForceStoreKitBackend") {
+            backend = .storeKit
+            print("SubscriptionManager: -ForceStoreKitBackend — using direct StoreKit 2 backend for testing")
+            loadStoreKitConfiguration()
+            startStoreKitTransactionListener()
+            Task { await finishUnfinishedStoreKitTransactions() }
+            return
+        }
+
         guard RevenueCatConstants.isConfigured else {
             backend = .storeKit
             print("SubscriptionManager: RevenueCat SDK key is a placeholder — using direct StoreKit 2 backend with the local Moove.storekit configuration.")
