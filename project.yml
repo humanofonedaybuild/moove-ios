@@ -52,7 +52,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleIconName: AppIcon
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "16"
+        CFBundleVersion: "17"
         ITSAppUsesNonExemptEncryption: false
         "NSAlarmKitUsageDescription": "Moove schedules alarms to wake you up. You must walk to dismiss them."
     sources:
